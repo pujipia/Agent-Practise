@@ -1,5 +1,6 @@
 import json
 import urllib.request
+from pathlib import Path
 
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
@@ -9,6 +10,7 @@ from models.linear_flow_spec import LinearFlowSpec
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "deepseek-r1:8b"
 
+user_input = input("请输入流程描述：")
 prompt = """
 你是一个流程抽取器。
 
@@ -31,9 +33,9 @@ prompt = """
 输出：
 {"steps":[{"text":"开始","role":"start"},{"text":"读取","role":"process"},{"text":"下载","role":"end"}]}
 
+
 现在处理这个用户输入：
-起点是开始，然后到读取，终点是下载
-"""
+""" + user_input
 
 payload = {
     "model": MODEL_NAME,

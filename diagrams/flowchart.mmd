@@ -1,6 +1,8 @@
 flowchart TD
-A@{ shape: stadium }["开始"]
-B@{ shape: rect }["读取"]
-C@{ shape: stadium }["下载"]
+A@{ shape: rect }["打开系统"]
+B@{ shape: rect }["上传文件"]
+C@{ shape: diamond }["检查格式是否正确"]
+D@{ shape: stadium }["生成报告"]
 A --> B
 B --> C
+C --> D
