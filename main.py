@@ -6,7 +6,25 @@ from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
 from models.linear_flow_spec import LinearFlowSpec
 
+def normalize_roles_by_input(linear_spec: LinearFlowSpec, user_input: str) -> LinearFlowSpec: #The additional Part of 3rd version
+    """
+    根据用户原始输入，对模型输出的 role 做规则修正。
+    作用：防止模型把“起点是 X”错误识别成 process。
+    """
 
+    if not linear_spec.steps:
+        return linear_spec
+
+    start_keywords = ["起点是", "起点为", "开始是", "从", "首先", "第一步"]
+    end_keywords = ["终点是", "终点为", "结束是", "最后是", "最后", "即可", "完成", "就可以了"]
+
+    if any(keyword in user_input for keyword in start_keywords):
+        linear_spec.steps[0].role = "start"
+
+    if any(keyword in user_input for keyword in end_keywords):
+        linear_spec.steps[-1].role = "end"
+
+    return linear_spec
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "deepseek-r1:8b"
 
@@ -59,11 +77,13 @@ with urllib.request.urlopen(request, timeout=120) as response:
 
 raw_json = result["response"]
 
-print("Ollama 返回的 JSON：")
+print("\nOllama 原始返回的 JSON（修正前）：")
 print(raw_json)
 
 data = json.loads(raw_json)
 linear_spec = LinearFlowSpec.model_validate(data)
+
+linear_spec = normalize_roles_by_input(linear_spec, user_input) #The additional PART of 3rd version
 
 print("\nPydantic 校验后的结果：")
 print(linear_spec)
