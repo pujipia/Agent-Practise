@@ -1,14 +1,11 @@
 flowchart TD
-A@{ shape: rect }["用户输入账号密码"]
-B@{ shape: diamond }["判断密码是否正确"]
-C@{ shape: rect }["进入主页"]
-D@{ shape: rect }["返回登录页面"]
-E@{ shape: rect }["再次等待用户输入"]
-F@{ shape: diamond }["判断密码是否正确"]
-G@{ shape: rect }["进入主页"]
+A@{ shape: rect }["用户上传文件"]
+B@{ shape: diamond }["判断文件是否为机密文件"]
+C@{ shape: rect }["机密文件传输到保密库"]
+D@{ shape: rect }["非机密文件传输到公共库"]
+E@{ shape: rect }["统一上报"]
 A --> B
-B -->|正确| C
-B -->|不正确| D
+B -->|是| C
+B -->|否| D
+C --> E
 D --> E
-E --> F
-F -->|正确| G

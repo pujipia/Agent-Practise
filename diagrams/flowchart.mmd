@@ -1,12 +1,10 @@
 flowchart TD
-A@{ shape: stadium }["输入流程描述"]
-B@{ shape: rect }["Ollama生成JSON"]
-C@{ shape: diamond }["Pydantic校验结果"]
-D@{ shape: rect }["builder生成FlowchartSpec"]
-E@{ shape: rect }["compiler生成Mermaid"]
-F@{ shape: stadium }["保存到diagrams文件夹"]
+A@{ shape: stadium }["用户上传文件"]
+B@{ shape: rect }["系统读取文件"]
+C@{ shape: rect }["分析文件内容"]
+D@{ shape: rect }["生成流程图"]
+E@{ shape: stadium }["保存结果"]
 A --> B
 B --> C
 C --> D
 D --> E
-E --> F
