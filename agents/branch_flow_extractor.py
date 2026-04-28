@@ -3,6 +3,7 @@
 import json
 import urllib.request
 import urllib.error
+from typing import Any, Dict, Optional
 
 from models.branch_flow_spec import BranchFlowSpec
 
@@ -27,12 +28,11 @@ JSON 必须包含：
 
 节点规则：
 1. 每个节点必须有 id、text、kind。
-2. id 按顺序使用 A、B、C、D。
+2. id 按顺序使用 A、B、C、D、E、F、G。
 3. kind 只能是 start_end、process、decision。
-4. 起点或开始节点用 start_end。
+4. 开始/结束节点用 start_end。
 5. 普通动作节点用 process。
 6. 判断、是否、检查、如果类节点用 decision。
-7. 结束节点用 start_end。
 
 连线规则：
 1. 普通顺序边 label 为 null。
@@ -99,7 +99,66 @@ JSON 必须包含：
     print(raw_json)
 
     data = json.loads(raw_json)
-
     branch_spec = BranchFlowSpec.model_validate(data)
 
     return branch_spec
+
+
+class BranchFlowExtractor:
+    """
+    Convert a validated branch diagram object into Mermaid flowchart code.
+    This class does NOT call Ollama.
+    """
+
+    def __init__(self, branch_diagram: Any):
+        self.diagram = self._to_dict(branch_diagram)
+        self.nodes = self.diagram.get("nodes", [])
+        self.edges = self.diagram.get("edges", [])
+        self.direction = self.diagram.get("direction", "TD")
+
+    def _to_dict(self, obj: Any) -> Dict[str, Any]:
+        if isinstance(obj, dict):
+            return obj
+
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+
+        if hasattr(obj, "dict"):
+            return obj.dict()
+
+        raise TypeError("Unsupported branch diagram type. Expected dict or Pydantic model.")
+
+    def _escape_text(self, text: Optional[str]) -> str:
+        if text is None:
+            return ""
+        return str(text).replace('"', '\\"')
+
+    def to_mermaid(self) -> str:
+        shape_map = {
+            "start_end": "stadium",
+            "process": "rect",
+            "decision": "diamond",
+        }
+
+        lines = [f"flowchart {self.direction}"]
+
+        for node in self.nodes:
+            node_id = node["id"]
+            text = self._escape_text(node["text"])
+            kind = node["kind"]
+            shape = shape_map.get(kind, "rect")
+
+            lines.append(f'{node_id}@{{ shape: {shape} }}["{text}"]')
+
+        for edge in self.edges:
+            source = edge["source"]
+            target = edge["target"]
+            label = edge.get("label")
+
+            if label:
+                label = self._escape_text(label)
+                lines.append(f"{source} -->|{label}| {target}")
+            else:
+                lines.append(f"{source} --> {target}")
+
+        return "\n".join(lines)

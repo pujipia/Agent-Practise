@@ -1,0 +1,14 @@
+flowchart TD
+A@{ shape: rect }["用户输入账号密码"]
+B@{ shape: diamond }["判断密码是否正确"]
+C@{ shape: rect }["进入主页"]
+D@{ shape: rect }["返回登录页面"]
+E@{ shape: rect }["再次等待用户输入"]
+F@{ shape: diamond }["判断密码是否正确"]
+G@{ shape: rect }["进入主页"]
+A --> B
+B -->|正确| C
+B -->|不正确| D
+D --> E
+E --> F
+F -->|正确| G
