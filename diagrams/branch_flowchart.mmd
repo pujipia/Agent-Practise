@@ -1,11 +1,17 @@
+%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%
 flowchart TD
-A@{ shape: rect }["用户上传文件"]
-B@{ shape: diamond }["判断文件是否为机密文件"]
-C@{ shape: rect }["机密文件传输到保密库"]
-D@{ shape: rect }["非机密文件传输到公共库"]
-E@{ shape: rect }["统一上报"]
+A@{ shape: rect }["用户输入账号密码"]
+B@{ shape: diamond }["系统检查密码是否正确"]
+C@{ shape: rect }["提示错误并返回重新输入账号密码"]
+D@{ shape: rect }["进入验证码验证"]
+E@{ shape: diamond }["系统检查验证码是否通过"]
+F@{ shape: rect }["进入主页"]
+G@{ shape: rect }["重新输入验证码"]
 A --> B
-B -->|是| C
-B -->|否| D
-C --> E
+B -->|不正确| C
+B -->|正确| D
 D --> E
+E -->|通过| F
+E -->|不通过| G
+C -.->|返回| A
+G -.->|返回| D

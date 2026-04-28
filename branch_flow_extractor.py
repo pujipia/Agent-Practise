@@ -108,6 +108,7 @@ class BranchFlowExtractor:
         self.nodes = self.diagram.get("nodes", [])
         self.edges = self.diagram.get("edges", [])
         self.direction = self.diagram.get("direction", "TD")
+        self.spec = branch_diagram
 
     def _to_dict(self, obj: Any) -> Dict[str, Any]:
         if isinstance(obj, dict):
@@ -132,8 +133,11 @@ class BranchFlowExtractor:
             "process": "rect",
             "decision": "diamond",
         }
-
-        lines = [f"flowchart {self.direction}"]
+#Add a ELK layout configuration:
+        lines = [
+            '%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%',
+            f"flowchart {self.direction}"
+        ]
 
         for node in self.nodes:
             node_id = node["id"]
@@ -143,15 +147,28 @@ class BranchFlowExtractor:
 
             lines.append(f'{node_id}@{{ shape: {shape} }}["{text}"]')
 
-        for edge in self.edges:
-            source = edge["source"]
-            target = edge["target"]
-            label = edge.get("label")
+        normal_edges = []
+        loop_edges = []
+
+        for edge in self.spec.edges:
+            label = getattr(edge, "label", "")
+
+            if label == "返回":
+                loop_edges.append(edge)
+            else:
+                normal_edges.append(edge)
+
+
+        for edge in normal_edges:
+            label = getattr(edge, "label", "")
 
             if label:
-                label = self._escape_text(label)
-                lines.append(f"{source} -->|{label}| {target}")
+                lines.append(f'{edge.source} -->|{label}| {edge.target}')
             else:
-                lines.append(f"{source} --> {target}")
+                lines.append(f'{edge.source} --> {edge.target}')
+
+
+        for edge in loop_edges:
+            lines.append(f'{edge.source} -.->|返回| {edge.target}')
 
         return "\n".join(lines)
