@@ -1,13 +1,12 @@
 from models.flowchart_spec import FlowchartSpec
 
 
-FLOWCHART_SHAPE_MAP = {
-    "start_end": "stadium",
-    "process": "rect",
-    "decision": "diamond",
-    "database": "cyl",
-    "document": "doc",
-    "comment": "brace",
+NODE_TEMPLATE_MAP = {
+    "start_end": '{id}(["{label}"])',
+    "process": '{id}["{label}"]',
+    "decision": '{id}{{"{label}"}}',
+    "input_output": '{id}[/"{label}"/]',
+    "subroutine": '{id}[["{label}"]]',
 }
 
 

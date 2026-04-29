@@ -135,11 +135,46 @@ edges:
 4. edges 是连线列表。
 5. 每个节点必须包含 id、text、kind。
 6. id 按顺序使用 A、B、C、D、E、F。
-7. kind 只能是以下三种：
-   - start_end：开始或结束节点
-   - process：普通处理步骤
-   - decision：判断节点
+7. kind 只能是以下五种：
 
+1. start_end
+用于开始、结束、终止、完成等节点。
+
+2. process
+用于普通处理步骤，例如分析需求、清洗数据、生成结果、更新状态。
+
+3. decision
+用于判断条件，例如是否为空、是否成功、是否通过、是否符合规范、是否继续修改。
+decision 节点的 text 必须尽量写成问题形式。
+
+4. input_output
+用于输入、输出、读取、写入、上传、下载、导出、保存、展示、提示等数据流相关步骤。
+
+例如：
+- 用户输入业务描述
+- 读取配置文件
+- 上传文件
+- 保存结果
+- 展示流程图
+- 提示重新输入
+
+5. subroutine
+用于调用函数、调用模块、调用工具、调用 Agent、运行程序、执行子流程等步骤。
+
+例如：
+- 调用流程抽取模块
+- 调用 JSON 修复模块
+- 调用 Mermaid 渲染模块
+- 调用代码 Agent
+- 运行 Monte Carlo 仿真程序
+
+节点类型选择优先级：
+1. 如果一个节点同时符合多个类型，按照以上优先级选择最靠前的 kind。
+2. 如果表示开始、结束、终止、完成，使用 start_end。
+3. 如果表示是否、判断、检查是否、成功/失败、通过/不通过，使用 decision。
+4. 如果表示调用模块、调用函数、调用 Agent、调用工具、运行程序、执行子流程，使用 subroutine。
+5. 如果表示输入、输出、读取、写入、上传、下载、导出、保存、展示、提示，使用 input_output。
+6. 其他普通动作使用 process。
 ====================
 步骤拆分规则
 ====================
@@ -281,6 +316,8 @@ D: 提示重新输入
     data = json.loads(raw_json)
     branch_spec = BranchFlowSpec.model_validate(data)
 
+    branch_spec = repair_missing_back_edges(branch_spec)
+
     return branch_spec
 
 
@@ -323,8 +360,16 @@ class BranchFlowExtractor:
 
             if kind == "decision":
                 lines.append(f'{node_id}{{"{text}"}}')
+
             elif kind == "start_end":
                 lines.append(f'{node_id}(["{text}"])')
+
+            elif kind == "input_output":
+                lines.append(f'{node_id}[/"{text}"/]')
+
+            elif kind == "subroutine":
+                lines.append(f'{node_id}[["{text}"]]')
+
             else:
                 lines.append(f'{node_id}["{text}"]')
 
@@ -347,3 +392,79 @@ class BranchFlowExtractor:
                 lines.append(f"{source} --> {target}")
 
         return "\n".join(lines)
+#add a new function for automatically repair
+def repair_missing_back_edges(spec: BranchFlowSpec) -> BranchFlowSpec:
+    """
+    自动修复常见缺失回边：
+    1. 提示重新输入 -> 最近的输入节点
+    2. 返回输入阶段 -> 最近的输入节点
+    3. 调用 JSON 修复模块 -> 最近的 JSON 检查 decision 节点
+    """
+
+    existing_edges = {
+        (edge.source, edge.target)
+        for edge in spec.edges
+    }
+
+    outgoing_sources = {
+        edge.source
+        for edge in spec.edges
+    }
+
+    def add_edge(source: str, target: str, label: str = ""):
+        if (source, target) not in existing_edges:
+            edge_model = type(spec.edges[0])
+            spec.edges.append(
+                edge_model(
+                    source=source,
+                    target=target,
+                    label=label,
+                )
+            )
+            existing_edges.add((source, target))
+            outgoing_sources.add(source)
+
+    def find_previous_input_node(current_index: int):
+        for i in range(current_index - 1, -1, -1):
+            node = spec.nodes[i]
+            text = node.text
+
+            if node.kind == "input_output" and (
+                "输入" in text or "上传" in text or "提交" in text
+            ):
+                return node
+
+        return None
+
+    def find_previous_json_decision(current_index: int):
+        for i in range(current_index - 1, -1, -1):
+            node = spec.nodes[i]
+            text = node.text
+
+            if node.kind == "decision" and "JSON" in text:
+                return node
+
+        return None
+
+    for index, node in enumerate(spec.nodes):
+        text = node.text
+
+        # 情况 1：提示重新输入 / 返回输入阶段
+        if (
+            "重新输入" in text or "返回输入阶段" in text
+        ) and node.id not in outgoing_sources:
+            target_node = find_previous_input_node(index)
+
+            if target_node:
+                add_edge(node.id, target_node.id)
+
+        # 情况 2：JSON 修复后应该回到 JSON 检查
+        if (
+            "JSON 修复" in text or "修复模块" in text
+        ) and node.id not in outgoing_sources:
+            target_node = find_previous_json_decision(index)
+
+            if target_node:
+                add_edge(node.id, target_node.id)
+
+    return spec

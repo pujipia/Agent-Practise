@@ -5,8 +5,14 @@ from pydantic import BaseModel, Field
 class BranchNode(BaseModel):
     id: str = Field(description="节点ID，例如 A、B、C")
     text: str = Field(description="节点显示文字")
-    kind: Literal["start_end", "process", "decision"] = Field(
-        description="节点类型，只能是 start_end、process、decision"
+    kind: Literal[
+    "start_end",
+    "process",
+    "decision",
+    "input_output",
+    "subroutine",
+    ] = Field(
+    description="节点类型，只能是 start_end、process、decision、input_output、subroutine"
     )
 
 

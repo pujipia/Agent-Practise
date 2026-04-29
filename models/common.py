@@ -5,7 +5,6 @@ FlowNodeKind = Literal[
     "start_end",
     "process",
     "decision",
-    "database",
-    "document",
-    "comment",
+    "input_output",
+    "subroutine",
 ]
