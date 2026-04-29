@@ -7,6 +7,7 @@ from models.linear_flow_spec import LinearFlowSpec, StepItem
 from processors.role_normalizer import normalize_roles_by_input
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
+from utils.mermaid_renderer import render_mermaid_to_image
 
 from utils.loop_repairs import repair_loop_edges
 from validators.branch_validator import validate_branch_flow, print_validation_result
@@ -105,6 +106,9 @@ def main():
 
         print(f"\n已保存到：{output_path}")
 
+        image_path = diagram_dir / "branch_flowchart.svg"
+        render_mermaid_to_image(output_path, image_path)
+
     elif flow_type == "linear":
         # 1. 不调用 LLM，直接用规则提取 linear steps
         linear_spec = extract_linear_flow_by_rule(user_input)
@@ -132,6 +136,9 @@ def main():
         output_path.write_text(mermaid_code, encoding="utf-8")
 
         print(f"\n已保存到：{output_path}")
+        
+        image_path = diagram_dir / "branch_flowchart.svg"
+        render_mermaid_to_image(output_path, image_path)
 
     else:
         print("\n暂不支持的流程类型：")

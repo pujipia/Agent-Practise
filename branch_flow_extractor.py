@@ -128,47 +128,40 @@ class BranchFlowExtractor:
         return str(text).replace('"', '\\"')
 
     def to_mermaid(self) -> str:
-        shape_map = {
-            "start_end": "stadium",
-            "process": "rect",
-            "decision": "diamond",
-        }
-#Add a ELK layout configuration:
         lines = [
-            '%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%',
-            f"flowchart {self.direction}"
+        '%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%',
+        f"flowchart {self.direction}"
         ]
 
+    # 1. 节点
         for node in self.nodes:
             node_id = node["id"]
             text = self._escape_text(node["text"])
             kind = node["kind"]
-            shape = shape_map.get(kind, "rect")
 
-            lines.append(f'{node_id}@{{ shape: {shape} }}["{text}"]')
-
-        normal_edges = []
-        loop_edges = []
-
-        for edge in self.spec.edges:
-            label = getattr(edge, "label", "")
-
-            if label == "返回":
-                loop_edges.append(edge)
+            if kind == "decision":
+                lines.append(f'{node_id}{{"{text}"}}')
+            elif kind == "start_end":
+                lines.append(f'{node_id}(["{text}"])')
             else:
-                normal_edges.append(edge)
+                lines.append(f'{node_id}["{text}"]')
 
+        lines.append("")
 
-        for edge in normal_edges:
-            label = getattr(edge, "label", "")
+        # 2. 边
+        for edge in self.edges:
+            source = edge["source"]
+            target = edge["target"]
+            label = edge.get("label")
 
             if label:
-                lines.append(f'{edge.source} -->|{label}| {edge.target}')
+                label = self._escape_text(label)
+
+                if label == "返回":
+                    lines.append(f"{source} -.->|{label}| {target}")
+                else:
+                    lines.append(f"{source} -->|{label}| {target}")
             else:
-                lines.append(f'{edge.source} --> {edge.target}')
-
-
-        for edge in loop_edges:
-            lines.append(f'{edge.source} -.->|返回| {edge.target}')
+                lines.append(f"{source} --> {target}")
 
         return "\n".join(lines)

@@ -72,7 +72,7 @@ def repair_loop_edges(spec):
         if any(keyword in text for keyword in ["重新输入账号", "重新输入账户", "重新输入用户名", "重新输入账号密码", "返回重新输入账号密码", "重新登录"]):
             target_id = find_target_node(
                 spec,
-                ["输入账号", "输入账户", "输入用户名", "账号密码", "账户密码", "登录"]
+                ["输入账号", "输入账户", "输入用户名", "账号密码", "账户密码", "重新登录"]
             )
 
             if target_id and target_id != node.id and not has_edge(spec, node.id, target_id):
@@ -82,7 +82,7 @@ def repair_loop_edges(spec):
         elif any(keyword in text for keyword in ["重新输入密码", "返回重新输入密码"]):
             target_id = find_target_node(
                 spec,
-                ["输入密码", "账号密码", "账户密码", "登录"]
+                ["输入密码", "账号密码", "账户密码", "重新登录"]
             )
 
             if target_id and target_id != node.id and not has_edge(spec, node.id, target_id):

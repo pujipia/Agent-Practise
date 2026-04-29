@@ -338,9 +338,13 @@ class BranchFlowExtractor:
             node_id = node["id"]
             text = self._escape_text(node["text"])
             kind = node["kind"]
-            shape = shape_map.get(kind, "rect")
 
-            lines.append(f'{node_id}@{{ shape: {shape} }}["{text}"]')
+            if kind == "decision":
+                lines.append(f'{node_id}{{"{text}"}}')
+            elif kind == "start_end":
+                lines.append(f'{node_id}(["{text}"])')
+            else:
+                lines.append(f'{node_id}["{text}"]')
 
         for edge in self.edges:
             source = edge["source"]
