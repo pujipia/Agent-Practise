@@ -19,9 +19,18 @@ def compile_flowchart(spec: FlowchartSpec) -> str:
     lines = [f"flowchart {spec.direction}"]
 
     for node in spec.nodes:
-        shape = FLOWCHART_SHAPE_MAP[node.kind]
         label = escape_text(node.text)
-        lines.append(f'{node.id}@{{ shape: {shape} }}["{label}"]')
+
+        if node.kind == "start_end":
+            lines.append(f'{node.id}(["{label}"])')
+        elif node.kind == "decision":
+            lines.append(f'{node.id}{{"{label}"}}')
+        elif node.kind == "input_output":
+            lines.append(f'{node.id}[/"{label}"/]')
+        elif node.kind == "subroutine":
+            lines.append(f'{node.id}[["{label}"]]')
+        else:
+            lines.append(f'{node.id}["{label}"]')
 
     for edge in spec.edges:
         if edge.label:

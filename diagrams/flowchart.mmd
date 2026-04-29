@@ -1,9 +1,9 @@
 flowchart TD
-A@{ shape: stadium }["用户上传文件"]
-B@{ shape: rect }["系统读取文件"]
-C@{ shape: rect }["分析文件内容"]
-D@{ shape: rect }["生成流程图"]
-E@{ shape: stadium }["保存结果"]
+A(["用户打开系统"])
+B["输入需求"]
+C["系统分析需求"]
+D["生成流程图"]
+E(["输出结果"])
 A --> B
 B --> C
 C --> D
