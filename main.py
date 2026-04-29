@@ -9,6 +9,7 @@ from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
 
 from utils.loop_repairs import repair_loop_edges
+from validators.branch_validator import validate_branch_flow, print_validation_result
 
 
 def extract_linear_flow_by_rule(user_input: str) -> LinearFlowSpec:
@@ -74,13 +75,21 @@ def main():
     print(flow_type)
 
     if flow_type == "branch":
-        # 1. 先用 LLM 抽取分支流程
+    # 1. 用 LLM 抽取 branch JSON
         branch_diagram = extract_branch_flow(user_input)
 
-        # 2. 新增：修复“返回 / 重新输入 / 再次输入”这类循环边
+    # 2. 修复返回 / 重新输入 / 再次输入这种循环边
         branch_diagram = repair_loop_edges(branch_diagram)
 
-        # 3. 转成 Mermaid
+    # 3. 校验 branch 结构
+        errors, warnings = validate_branch_flow(branch_diagram, user_input)
+        print_validation_result(errors, warnings)
+
+        if errors:
+            print("\n检测到严重结构错误，建议先修复后再生成 Mermaid。")
+            return
+
+    # 4. 生成 Mermaid
         branch_result = BranchFlowExtractor(branch_diagram)
         mermaid_code = branch_result.to_mermaid()
 

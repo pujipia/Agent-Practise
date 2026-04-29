@@ -1,17 +1,21 @@
 %%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%
 flowchart TD
-A@{ shape: rect }["用户输入账号密码"]
-B@{ shape: diamond }["系统检查密码是否正确"]
-C@{ shape: rect }["提示错误并返回重新输入账号密码"]
-D@{ shape: rect }["进入验证码验证"]
-E@{ shape: diamond }["系统检查验证码是否通过"]
-F@{ shape: rect }["进入主页"]
-G@{ shape: rect }["重新输入验证码"]
+A@{ shape: rect }["用户打开登录页面"]
+B@{ shape: rect }["输入账号密码"]
+C@{ shape: diamond }["系统检查账号密码是否正确"]
+D@{ shape: rect }["提示错误并返回重新输入账号密码"]
+E@{ shape: rect }["系统发送验证码"]
+F@{ shape: rect }["用户进入验证码验证"]
+G@{ shape: diamond }["系统检查验证码是否通过"]
+H@{ shape: rect }["重新输入验证码"]
+I@{ shape: rect }["进入用户主页"]
 A --> B
-B -->|不正确| C
-B -->|正确| D
-D --> E
-E -->|通过| F
-E -->|不通过| G
-C -.->|返回| A
-G -.->|返回| D
+B --> C
+C -->|不正确| D
+C -->|正确| E
+E --> F
+F --> G
+G -->|不通过| H
+G -->|通过| I
+D -.->|返回| A
+H -.->|返回| F
