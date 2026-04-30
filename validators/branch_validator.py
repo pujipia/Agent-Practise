@@ -1,5 +1,7 @@
-def normalize_text(text: str) -> str:
-    return text.replace(" ", "").replace("\n", "")
+def normalize_text(text):
+    if text is None:
+        return ""
+    return str(text).replace(" ", "").replace("\n", "")
 
 
 def has_edge(spec, source_id: str, target_id: str) -> bool:
@@ -92,12 +94,20 @@ def validate_branch_flow(spec, user_input: str = ""):
 
     # 4. 检查“返回 / 重新输入 / 再次输入”是否真的有回边
     loop_keywords = [
-        "返回",
+        "返回输入",
+        "返回输入阶段",
+        "返回上一步",
+        "返回上一阶段",
+        "返回重新检查",
+        "返回检查",
         "重新输入",
-        "再次输入",
-        "回到",
-        "重新验证",
-        "重新登录",
+        "重新检查",
+        "再次检查",
+        "重新判断",
+        "再次判断",
+        "回到输入",
+        "回到检查",
+        "回到判断",
     ]
 
     for node in spec.nodes:
@@ -107,11 +117,11 @@ def validate_branch_flow(spec, user_input: str = ""):
             has_loop_edge = False
 
             for edge in spec.edges:
-                label = getattr(edge, "label", "")
+                label = getattr(edge, "label", "") or ""
 
                 if edge.source == node.id:
                     # 情况 1：有返回 label
-                    if label == "返回":
+                    if normalize_text(label) == "返回":
                         has_loop_edge = True
 
                     # 情况 2：目标节点在当前节点前面，也认为是回边
