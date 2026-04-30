@@ -56,54 +56,70 @@ def build_branch_prompt(user_input: str) -> str:
 不要输出思考过程。
 不要在 JSON 外添加任何文字。
 
-【最高优先级规则：decision 节点准入】
+====================
+最高优先级规则：decision 与 edge.label
+====================
 
-只有真正的问题或检查动作才能生成 kind="decision"。
+decision 节点分为两类：
 
-decision 节点的 text 必须是一个问题，通常应包含：
-- 是否
-- 能否
-- 是否可以
-- 是否成功
-- 是否完整
-- 是否合法
-- 是否通过
-- ？
+1. 分类型 decision
+用于判断一个对象属于哪一类。
+这类 decision 不需要写成“是否为 A / 是否为 B”。
+正确写法应是：
+- 流程类型？
+- 文件类型？
+- 路由结果？
+- 处理结果？
+- 用户角色？
 
-禁止把“判断结果”生成成 decision 节点。
+例如：
+用户说“如果流程是线性流程……如果流程是分支流程……”
+正确：
+node: 流程类型？ kind="decision"
+edge: 流程类型？ -> 调用 linear extractor, label="线性流程"
+edge: 流程类型？ -> 调用 branch extractor, label="分支流程"
 
-以下文本绝对不能作为节点：
-- 线性流程
-- 分支流程
-- 流程是线性流程
-- 流程是分支流程
-- JSON 合法
-- JSON 不合法
-- JSON 完整
-- JSON 不完整
-- 可以编译
+错误：
+不要生成“流程是线性流程？”和“流程是分支流程？”两个 decision。
+
+2. 检查型 decision
+用于判断某个属性是否满足。
+这类 decision 应尽量使用正向属性问题：
+- JSON 是否完整？
+- JSON 是否合法？
+- Mermaid 代码是否可以编译？
+- API 请求是否成功？
+- 参数是否完整？
+- 权限是否通过？
+
+不要生成负向问题：
+- JSON 是否不完整？
+- JSON 不完整？
+- JSON 不合法？
+- Mermaid 代码是否不能编译？
+- API 请求是否失败？
+
+负向结果只能作为 edge.label：
+- 不完整
+- 不合法
 - 不能编译
-- Mermaid 代码可以编译
-- Mermaid 代码不能编译
-- 成功
 - 失败
-- 是
-- 否
+- 不通过
 
-这些内容只能作为 edge.label。
+判断结果不能作为节点，只能作为 edge.label。
+禁止把以下内容作为 node：
+- 是 / 否
+- 成功 / 失败
+- 通过 / 不通过
+- 线性流程 / 分支流程
+- 完整 / 不完整
+- 合法 / 不合法
+- 可以编译 / 不能编译
 
-正确做法：
-如果用户说“如果 JSON 合法，则调用 Mermaid 生成模块”，
-不要生成 “JSON 合法” 节点。
-应该生成：
-节点：JSON 是否合法？ kind="decision"
-连线：JSON 是否合法？ -> 调用 Mermaid 生成模块，label="合法"
-
-如果用户说“如果不能编译，则调用 Mermaid 修复模块”，
-不要生成 “不能编译” 节点。
-应该生成：
-节点：Mermaid 代码是否可以编译？ kind="decision"
-连线：Mermaid 代码是否可以编译？ -> 调用 Mermaid 修复模块，label="不能编译"
+正确结构：
+- decision 节点表示“要判断什么”
+- edge.label 表示“判断结果”
+- edge.target 连接到对应动作节点
 
 ====================
 输出 JSON 格式
@@ -144,59 +160,6 @@ decision 节点的 text 必须是一个问题，通常应包含：
 8. 明确出现的输入、调用、检查、展示、保存、结束等步骤都应该保留。
 9. 节点 text 要简洁清楚，尽量控制在 4 到 16 个中文字符。
 10. 不要使用含糊文字，例如“处理”“操作”“进行下一步”。
-====================
-重要规则：条件结果不能单独作为 decision 节点。
-====================
-
-当用户输入中出现：
-- 如果是线性流程，则……
-- 如果是分支流程，则……
-- 如果 JSON 合法，则……
-- 如果 JSON 不合法，则……
-- 如果可以编译，则……
-- 如果不能编译，则……
-- 如果请求成功，则……
-- 如果请求失败，则……
-
-不要把“线性流程”“分支流程”“JSON 合法”“JSON 不合法”“可以编译”“不能编译”“成功”“失败”单独生成 decision 节点。
-如果一个节点文本本身只是某个判断的结果，例如“JSON 合法”“JSON 不合法”“可以编译”“不能编译”“成功”“失败”“是”“否”，不要生成该节点。
-这些词只能作为 edge.label。
-
-正确做法是：
-1. 生成一个真正的判断节点，例如：
-   - 流程类型？
-   - JSON 是否合法？
-   - Mermaid 代码是否可以编译？
-   - API 请求是否成功？
-2. 把条件结果作为 edge.label，例如：
-   - 线性流程
-   - 分支流程
-   - 合法
-   - 不合法
-   - 可以编译
-   - 不能编译
-   - 成功
-   - 失败
-3. edge.label 连接到对应的后续动作节点。
-错误示例：
-nodes:
-- 判断流程类型 decision
-- 流程是线性流程 decision
-- 调用 linear extractor subroutine
-- 流程是分支流程 decision
-- 调用 branch extractor subroutine
-
-这是错误的，因为“流程是线性流程”和“流程是分支流程”只是判断结果，不是新的判断节点。
-
-正确示例：
-nodes:
-- 判断流程类型？ decision
-- 调用 linear extractor subroutine
-- 调用 branch extractor subroutine
-
-edges:
-- 判断流程类型？ -> 调用 linear extractor, label="线性流程"
-- 判断流程类型？ -> 调用 branch extractor, label="分支流程"
 
 ====================
 编译检查规则
@@ -233,28 +196,28 @@ edges:
    - 不存在未定义的节点 id
 
 ====================
-分支汇合规则
+流程顺序与分支汇合规则
 ====================
 
-当一个 decision 节点产生多个分支时，每个分支动作完成后，必须连接到共同的后续步骤，除非该分支明确结束流程。
+必须严格保持用户描述中的先后顺序。
 
-例如：
-流程类型？
-- 线性流程 -> 调用 linear extractor
-- 分支流程 -> 调用 branch extractor
-之后如果用户继续说“检查 JSON 是否符合规范”，
-则 linear extractor 和 branch extractor 都必须连接到 JSON 检查节点。
+当一个 decision 产生多个普通业务分支时，分支动作完成后必须连接到用户描述中紧接着出现的共同后续步骤。
 
-错误：
-流程类型？ -> 调用 linear extractor
-流程类型？ -> 调用 branch extractor
-只有 linear extractor -> JSON 检查
+共同后续步骤不能绕过分支动作，不能直接从分支前的节点连接。
 
-正确：
-流程类型？ -> 调用 linear extractor
-流程类型？ -> 调用 branch extractor
-调用 linear extractor -> JSON 检查
-调用 branch extractor -> JSON 检查
+抽象结构：
+前置步骤 -> 判断节点？
+判断节点？ -> 动作 A, label="条件 A"
+判断节点？ -> 动作 B, label="条件 B"
+动作 A -> 共同后续步骤
+动作 B -> 共同后续步骤
+
+错误结构：
+前置步骤 -> 共同后续步骤
+动作 A 没有出边
+动作 B 没有出边
+
+如果用户说“随后、之后、接着、然后、再检查……”，这个步骤通常是前面所有分支完成后的共同后续步骤。
 
 ====================
 重新检查/重新编译规则
@@ -338,18 +301,10 @@ start_end > decision > subroutine > input_output > process
 分支结构规则
 ====================
 
-1. 如果出现“如果……则……；否则……”结构，必须生成一个 decision 节点和两条分支边。
-2. 从 decision 节点出发的边必须有 label。
-3. 常用 label：
-   - 是 / 否
-   - 成功 / 失败
-   - 通过 / 不通过
-   - 正确 / 错误
-4. 不要把“是”“否”“成功”“失败”“通过”“不通过”“正确”“错误”生成为节点。
-   这些词只能作为 edge 的 label。
-5. 不要为同一个判断生成两个 decision 节点。
-   例如“系统判断输入是否为空”和“输入是否为空？”只能合并成一个 decision 节点。
-6. 每个 decision 节点通常至少有两个出口。
+1. 如果出现“如果……则……；否则……”结构，必须生成一个 decision 节点和至少两条分支边。
+2. 从 decision 节点出发的边必须尽量填写 label。
+3. 同一个判断只能生成一个 decision 节点，不要重复生成。
+4. 每个 decision 节点通常至少有两个出口。
 
 ====================
 步骤拆分规则
@@ -482,7 +437,7 @@ def extract_branch_flow(user_input: str) -> BranchFlowSpec:
     branch_spec = repair_decision_branch_join(branch_spec)
 
     # 3. 通用修复无入边节点
-    branch_spec = repair_missing_incoming_edges_generic(branch_spec)
+   # branch_spec = repair_missing_incoming_edges_generic(branch_spec)
 
     # 4. 通用反馈回路修复：修复、重试、重新检查、返回输入等
     branch_spec = repair_feedback_loop_edges(branch_spec)
@@ -941,68 +896,47 @@ def contract_feedback_jump_nodes_to_previous_decision(spec: BranchFlowSpec) -> B
     existing_pairs = {(edge.source, edge.target) for edge in spec.edges}
     EdgeType = type(spec.edges[0])
 
-    def is_feedback_jump_node(node) -> bool:
-        """
-        判断节点是否是纯跳转节点。
-        重点：不能因为文本里有“返回”就误判。
-        """
-        text = norm(node.text)
+    return spec
 
-        # 排除业务语义：这些不是跳转
-        business_return_keywords = [
-            "返回数据",
-            "返回结果",
-            "返回值",
-            "返回内容",
-            "API返回",
-            "解析返回数据",
-        ]
+def is_feedback_jump_node(node) -> bool:
+    text = norm(node.text)
 
-        if any(keyword in text for keyword in business_return_keywords):
+    # 只压缩普通 process，不压缩 subroutine / input_output / decision
+    if node.kind != "process":
+        return False
+
+    # 包含真实动作词的节点，不是纯跳转节点
+    action_keywords = [
+        "调用",
+        "模块",
+        "修复",
+        "生成",
+        "保存",
+        "输出",
+        "解析",
+        "检查",
+        "读取",
+        "提交",
+        "提示用户",
+    ]
+
+    if any(keyword in text for keyword in action_keywords):
+        # 注意：“重新检查 JSON”虽然有检查，但它更像跳转。
+        # 如果你希望保留它为纯跳转，可以把“重新检查”单独放行。
+        if not text.startswith("重新检查") and not text.startswith("再次检查"):
             return False
 
-        # 这类应由“返回输入阶段”逻辑处理，不强行指向 decision
-        input_return_keywords = [
-            "返回输入阶段",
-            "返回输入",
-            "重新输入",
-            "再次输入",
-            "提示用户重新输入",
-        ]
+    pure_jump_keywords = [
+        "返回",
+        "重新检查",
+        "再次检查",
+        "重新判断",
+        "再次判断",
+        "重新验证",
+        "重新编译",
+    ]
 
-        if any(keyword in text for keyword in input_return_keywords):
-            return False
-
-        # 明确的纯跳转节点
-        exact_jump_texts = [
-            "返回",
-            "回到",
-            "重新检查",
-            "再次检查",
-            "重新判断",
-            "再次判断",
-            "重新验证",
-            "重新编译",
-        ]
-
-        if text in exact_jump_texts:
-            return True
-
-        # 带对象的跳转语义，例如：重新检查JSON、重新编译Mermaid代码
-        partial_jump_keywords = [
-            "重新检查",
-            "再次检查",
-            "重新判断",
-            "再次判断",
-            "重新验证",
-            "重新编译",
-            "返回检查",
-            "回到检查",
-            "返回判断",
-            "回到判断",
-        ]
-
-        return any(keyword in text for keyword in partial_jump_keywords)
+    return any(text == keyword or text.startswith(keyword) for keyword in pure_jump_keywords)
 
     def get_jump_label(node) -> str:
         """
@@ -1097,46 +1031,50 @@ def contract_feedback_jump_nodes_to_previous_decision(spec: BranchFlowSpec) -> B
             continue
 
         in_edges = incoming.get(node.id, [])
+        out_edges = outgoing.get(node.id, [])
 
-        # 没有入边，无法知道从哪里来，不处理
-        if not in_edges:
+        # 只处理一入一出的纯跳转节点，避免误伤复杂结构
+        if len(in_edges) != 1 or len(out_edges) != 1:
             continue
 
-        target_decision = find_previous_decision_for_jump(node)
+        in_edge = in_edges[0]
+        out_edge = out_edges[0]
 
-        if target_decision is None:
+        source = in_edge.source
+        target = out_edge.target
+
+        if source == target:
             continue
 
         jump_label = get_jump_label(node)
 
-        # 把所有进入 jump 节点的边，改成 source -> previous decision
-        for in_edge in in_edges:
-            source = in_edge.source
-            target = target_decision.id
-
-            if source == target:
-                continue
-
-            if (source, target) not in existing_pairs:
-                new_edges.append(
-                    EdgeType(
-                        source=source,
-                        target=target,
-                        label=jump_label
-                    )
+        # 优先使用原本 out_edge 的 target，不要强行找 previous decision
+        if (source, target) not in existing_pairs:
+            new_edges.append(
+                EdgeType(
+                    source=source,
+                    target=target,
+                    label=jump_label
                 )
-                existing_pairs.add((source, target))
+            )
+            existing_pairs.add((source, target))
+        else:
+            # 如果 source -> target 已经存在，但 label 为空，则补 label
+            for edge in spec.edges:
+                if edge.source == source and edge.target == target:
+                    current_label = getattr(edge, "label", None)
+                    if current_label is None or str(current_label).strip() == "":
+                        edge.label = jump_label
 
         # 删除 jump 节点及其相关边
         remove_node_ids.add(node.id)
 
-        for edge in spec.edges:
-            if edge.source == node.id or edge.target == node.id:
-                remove_edge_ids.add(id(edge))
+        remove_edge_ids.add(id(in_edge))
+        remove_edge_ids.add(id(out_edge))
 
         print(
             f"[repair] contract feedback jump node: "
-            f"{node.id}({node.text}) -> {target_decision.id}({target_decision.text})"
+            f"{node.id}({node.text}) -> {source} -> {target}, label={jump_label}"
         )
 
     spec.nodes = [
@@ -1210,36 +1148,104 @@ def repair_missing_incoming_edges_generic(spec: BranchFlowSpec) -> BranchFlowSpe
 
         return False
 
-    def is_exception_or_feedback_node(node) -> bool:
+    def is_feedback_jump_node(node) -> bool:
         """
-        判断这个无入边节点是否像异常处理 / 反馈回路节点。
-        这类节点通常应该从前面的 decision 分支连入。
+        判断节点是否是纯跳转节点。
+
+        只压缩：
+        - 返回
+        - 重新检查 JSON
+        - 重新编译
+        - 再次判断
+        这类纯跳转 process 节点。
+
+        不压缩：
+        - 调用 Mermaid 修复模块修改语法并重新编译
+        - 调用 JSON 修复模块
+        - 解析返回数据
+        - 提示用户重新输入需求
         """
+
         text = norm(node.text)
 
-        keywords = [
-            "提示",
-            "补充",
+        # 只处理 process。subroutine / decision / input_output 都不能压缩。
+        if node.kind != "process":
+            return False
+
+        # 排除业务语义：这些不是跳转
+        business_return_keywords = [
+            "返回数据",
+            "返回结果",
+            "返回值",
+            "返回内容",
+            "API返回",
+            "解析返回数据",
+        ]
+
+        if any(keyword in text for keyword in business_return_keywords):
+            return False
+
+        # 返回输入阶段 / 重新输入属于用户交互回路，不在这里压缩到 decision
+        input_return_keywords = [
+            "返回输入阶段",
+            "返回输入",
             "重新输入",
             "再次输入",
-            "返回输入",
+            "提示用户重新输入",
+        ]
+
+        if any(keyword in text for keyword in input_return_keywords):
+            return False
+
+        # 排除真实动作节点
+        action_keywords = [
+            "调用",
+            "模块",
             "修复",
-            "补全",
-            "重试",
-            "错误",
-            "失败",
-            "异常",
-            "无法",
-            "不能",
-            "拒绝",
-            "终止",
-            "人工审核",
-            "重新验证",
+            "生成",
+            "保存",
+            "输出",
+            "解析",
+            "读取",
+            "提交",
+            "提示用户",
+            "记录",
+        ]
+
+        if any(keyword in text for keyword in action_keywords):
+            return False
+
+        # 明确的纯跳转节点
+        exact_jump_texts = [
+            "返回",
+            "回到",
             "重新检查",
+            "再次检查",
+            "重新判断",
+            "再次判断",
+            "重新验证",
             "重新编译",
         ]
 
-        return any(keyword in text for keyword in keywords)
+        if text in exact_jump_texts:
+            return True
+
+        # 带对象的纯跳转节点，必须以这些词开头
+        # 例如：重新检查JSON、重新编译Mermaid代码
+        allowed_prefixes = [
+            "重新检查",
+            "再次检查",
+            "重新判断",
+            "再次判断",
+            "重新验证",
+            "重新编译",
+            "返回检查",
+            "回到检查",
+            "返回判断",
+            "回到判断",
+        ]
+
+        return any(text.startswith(prefix) for prefix in allowed_prefixes)
 
     def latest_previous_decision(node):
         """
@@ -1714,10 +1720,14 @@ def repair_decision_branch_join(spec: BranchFlowSpec) -> BranchFlowSpec:
         return any(keyword in text for keyword in feedback_keywords)
 
     node_by_id = {node.id: node for node in spec.nodes}
+    node_index = {node.id: index for index, node in enumerate(spec.nodes)}
 
     outgoing = {}
+    incoming = {}
+
     for edge in spec.edges:
         outgoing.setdefault(edge.source, []).append(edge)
+        incoming.setdefault(edge.target, []).append(edge)
 
     existing_pairs = {(edge.source, edge.target) for edge in spec.edges}
 
@@ -1823,6 +1833,108 @@ def repair_decision_branch_join(spec: BranchFlowSpec) -> BranchFlowSpec:
                         )
                     )
                     existing_pairs.add((branch_target, join_target))
+                # 情况 3：
+        # pre_node -> decision
+        # decision -> branch_1
+        # decision -> branch_2
+        # pre_node -> join_node
+        #
+        # 修复为：
+        # branch_1 -> join_node
+        # branch_2 -> join_node
+        #
+        # 典型错误：
+        # 用户输入 -> JSON 是否完整？
+        # 流程类型？ -> linear extractor
+        # 流程类型？ -> branch extractor
+        #
+        # 正确：
+        # linear extractor -> JSON 是否完整？
+        # branch extractor -> JSON 是否完整？
+
+        branch_targets = [edge.target for edge in branch_edges]
+
+        leaf_branch_targets = []
+
+        for branch_target in branch_targets:
+            branch_node = node_by_id.get(branch_target)
+
+            if branch_node is None:
+                continue
+
+            # 修复、返回、重试等反馈分支不参与普通汇合
+            if is_feedback_branch_node(branch_node):
+                continue
+
+            # 只处理没有出边的分支动作
+            if outgoing.get(branch_target):
+                continue
+
+            leaf_branch_targets.append(branch_target)
+
+        if len(leaf_branch_targets) >= 2:
+            decision_in_edges = incoming.get(node.id, [])
+
+            for decision_in_edge in decision_in_edges:
+                pre_node_id = decision_in_edge.source
+
+                bypass_edges = []
+
+                for edge in outgoing.get(pre_node_id, []):
+                    # 保留 pre_node -> decision
+                    if edge.target == node.id:
+                        continue
+
+                    # 不连接到 branch 自身
+                    if edge.target in branch_targets:
+                        continue
+
+                    target_node = node_by_id.get(edge.target)
+
+                    if target_node is None:
+                        continue
+
+                    # 目标必须在分支节点之后，否则不像共同后续步骤
+                    target_index = node_index.get(edge.target, -1)
+                    max_branch_index = max(
+                        node_index.get(branch_target, -1)
+                        for branch_target in leaf_branch_targets
+                    )
+
+                    if target_index <= max_branch_index:
+                        continue
+
+                    # 反馈/异常节点不作为普通共同后续步骤
+                    if is_feedback_branch_node(target_node):
+                        continue
+
+                    bypass_edges.append(edge)
+
+                if not bypass_edges:
+                    continue
+
+                # 选择最近的共同后续步骤
+                join_edge = min(
+                    bypass_edges,
+                    key=lambda edge: node_index.get(edge.target, 999999)
+                )
+
+                join_target = join_edge.target
+
+                # 删除 pre_node -> join_node 这条绕过分支的错误边
+                remove_edge_ids.add(id(join_edge))
+
+                # 补 branch -> join_node
+                for branch_target in leaf_branch_targets:
+                    if (branch_target, join_target) not in existing_pairs:
+                        new_edges.append(
+                            type(join_edge)(
+                                source=branch_target,
+                                target=join_target,
+                                label=""
+                            )
+                        )
+                        existing_pairs.add((branch_target, join_target))
 
     spec.edges = [
         edge for edge in spec.edges
