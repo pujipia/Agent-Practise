@@ -1,34 +1,36 @@
 %%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%
 flowchart TD
 A[/"用户提交流程图生成需求"/]
-B{"判断流程类型"}
+B{"流程类型？"}
 C[["调用 linear extractor"]]
 D[["调用 branch extractor"]]
 E{"JSON 是否完整？"}
 F[["调用 JSON 修复模块"]]
+G{"JSON 是否合法？"}
 H[/"提示用户重新输入需求"/]
-J[["调用 Mermaid 生成模块"]]
-K{"Mermaid 代码是否可以编译？"}
-L[["调用 Mermaid 修复模块"]]
-M["生成 SVG 图片"]
-N["保存到 diagrams 文件夹"]
-O[/"提示用户生成成功"/]
-P(["结束流程"])
+I[["调用 Mermaid 生成模块"]]
+J{"Mermaid 代码是否可以编译？"}
+K[["调用 Mermaid 修复模块"]]
+L[/"生成 SVG 图片"/]
+M["保存到 diagrams 文件夹"]
+N[/"提示用户生成成功"/]
+O(["结束流程"])
 
 A --> B
 B -->|线性流程| C
 B -->|分支流程| D
+C --> E
 E -->|不完整| F
-E -->|不合法| H
-E -->|合法| J
-J --> K
-K -->|不能编译| L
-L -.->|返回| K
-K -->|可以编译| M
+F -.->|返回| E
+E -->|完整| G
+G -->|不合法| H
+H -.->|返回| A
+G -->|合法| I
+I --> J
+J -->|不能编译| K
+K -.->|返回| J
+J -->|可以编译| L
+L --> M
 M --> N
 N --> O
-O --> P
-C --> E
 D --> E
-F -.->|返回| E
-H -.->|返回| A

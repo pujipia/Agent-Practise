@@ -121,6 +121,26 @@ edge: 流程类型？ -> 调用 branch extractor, label="分支流程"
 - edge.label 表示“判断结果”
 - edge.target 连接到对应动作节点
 
+不要把不同属性的判断结果混在同一个 decision 节点下。
+
+例如：
+“JSON 是否完整？” 只能使用 “完整 / 不完整” 作为 edge.label。
+“JSON 是否合法？” 只能使用 “合法 / 不合法” 作为 edge.label。
+“Mermaid 代码是否可以编译？” 只能使用 “可以编译 / 不能编译” 作为 edge.label。
+
+如果用户先说“JSON 不完整”，后面又说“JSON 不合法 / JSON 合法”，必须生成两个 decision：
+1. JSON 是否完整？
+2. JSON 是否合法？
+
+错误：
+JSON 是否完整？ -> 提示用户重新输入需求, label="不合法"
+JSON 是否完整？ -> 调用 Mermaid 生成模块, label="合法"
+
+正确：
+JSON 是否完整？ -> JSON 是否合法？, label="完整"
+JSON 是否合法？ -> 提示用户重新输入需求, label="不合法"
+JSON 是否合法？ -> 调用 Mermaid 生成模块, label="合法"
+
 ====================
 输出 JSON 格式
 ====================
@@ -545,6 +565,9 @@ class BranchFlowExtractor:
         作用：
         生成完整 Mermaid flowchart 文本。
         defaultRenderer 使用 elk，可以在复杂图上尽量改善布局。
+
+        这里会在 Mermaid 输出阶段去掉重复 edge。
+        注意：只影响最终显示，不修改原始 spec.edges。
         """
         lines = [
             '%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%',
@@ -557,8 +580,23 @@ class BranchFlowExtractor:
 
         lines.append("")
 
-        # 2. 渲染边
+        # 2. 渲染边：去掉完全重复的 edge
+        seen_edges = set()
+
         for edge in self.edges:
+            source = edge.get("source")
+            target = edge.get("target")
+            label = edge.get("label") or ""
+
+            # 去掉 label 前后空格，避免 "" 和 None / 空格造成重复线
+            label = str(label).strip()
+
+            edge_key = (source, target, label)
+
+            if edge_key in seen_edges:
+                continue
+
+            seen_edges.add(edge_key)
             lines.append(self._render_edge(edge))
 
         return "\n".join(lines)
