@@ -896,47 +896,46 @@ def contract_feedback_jump_nodes_to_previous_decision(spec: BranchFlowSpec) -> B
     existing_pairs = {(edge.source, edge.target) for edge in spec.edges}
     EdgeType = type(spec.edges[0])
 
-    return spec
 
-def is_feedback_jump_node(node) -> bool:
-    text = norm(node.text)
+    def is_feedback_jump_node(node) -> bool:
+        text = norm(node.text)
 
-    # 只压缩普通 process，不压缩 subroutine / input_output / decision
-    if node.kind != "process":
-        return False
-
-    # 包含真实动作词的节点，不是纯跳转节点
-    action_keywords = [
-        "调用",
-        "模块",
-        "修复",
-        "生成",
-        "保存",
-        "输出",
-        "解析",
-        "检查",
-        "读取",
-        "提交",
-        "提示用户",
-    ]
-
-    if any(keyword in text for keyword in action_keywords):
-        # 注意：“重新检查 JSON”虽然有检查，但它更像跳转。
-        # 如果你希望保留它为纯跳转，可以把“重新检查”单独放行。
-        if not text.startswith("重新检查") and not text.startswith("再次检查"):
+        # 只压缩普通 process，不压缩 subroutine / input_output / decision
+        if node.kind != "process":
             return False
 
-    pure_jump_keywords = [
-        "返回",
-        "重新检查",
-        "再次检查",
-        "重新判断",
-        "再次判断",
-        "重新验证",
-        "重新编译",
-    ]
+        # 包含真实动作词的节点，不是纯跳转节点
+        action_keywords = [
+            "调用",
+            "模块",
+            "修复",
+            "生成",
+            "保存",
+            "输出",
+            "解析",
+            "检查",
+            "读取",
+            "提交",
+            "提示用户",
+        ]
 
-    return any(text == keyword or text.startswith(keyword) for keyword in pure_jump_keywords)
+        if any(keyword in text for keyword in action_keywords):
+            # 注意：“重新检查 JSON”虽然有检查，但它更像跳转。
+            # 如果你希望保留它为纯跳转，可以把“重新检查”单独放行。
+            if not text.startswith("重新检查") and not text.startswith("再次检查"):
+                return False
+
+        pure_jump_keywords = [
+            "返回",
+            "重新检查",
+            "再次检查",
+            "重新判断",
+            "再次判断",
+            "重新验证",
+            "重新编译",
+        ]
+
+        return any(text == keyword or text.startswith(keyword) for keyword in pure_jump_keywords)
 
     def get_jump_label(node) -> str:
         """
