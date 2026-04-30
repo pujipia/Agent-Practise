@@ -239,6 +239,27 @@ JSON 是否合法？ -> 调用 Mermaid 生成模块, label="合法"
 
 如果用户说“随后、之后、接着、然后、再检查……”，这个步骤通常是前面所有分支完成后的共同后续步骤。
 
+【edge.label 与目标动作一致性】
+
+decision 的 edge.label 必须和 target 动作语义一致。
+
+正向 label，例如：
+完整、合法、正确、成功、通过、可以编译
+
+应该连接到正常后续动作，例如：
+调用模块、检查下一项、生成、解析、进入系统、输出结果。
+
+负向 label，例如：
+不完整、不合法、错误、失败、不通过、不能编译
+
+应该连接到异常处理动作，例如：
+提示补充、提示重新输入、记录错误、修复、重试、拒绝访问。
+
+错误：
+登录信息是否完整？ -> 返回输入阶段, label="完整"
+
+正确：
+登录信息是否完整？ -> 调用登录验证模块, label="完整"
 ====================
 重新检查/重新编译规则
 ====================
@@ -351,25 +372,34 @@ start_end > decision > subroutine > input_output > process
 如果回边没有完全生成，系统后续会进行自动修复。
 但你应该尽量直接生成正确回边。
 
-返回输入阶段规则：
+====================
+返回/重新输入规则
+====================
 
-如果用户文本明确出现“返回输入阶段”，可以生成一个 process 节点：
+“返回输入阶段”“返回输入”“重新输入”“再次输入”通常表示回到前面的真实输入节点。
 
-{
-  "id": "K",
-  "text": "返回输入阶段",
-  "kind": "process"
-}
+优先把这类语义表达为 edge.label="返回"，不要单独生成“返回输入阶段”节点。
 
-然后连接为：
+正确：
+提示用户补充信息 -> 用户输入信息, label="返回"
+提示用户重新输入 -> 用户输入信息, label="返回"
 
-是否继续修改？ -->|是| 返回输入阶段
-返回输入阶段 -->|返回| 用户输入业务描述
-是否继续修改？ -->|否| 结束流程
+如果模型确实生成了“返回输入阶段”节点，则该节点必须连接回真实输入节点。
+后处理可能会把这类纯跳转节点压缩成 label="返回" 的回边。
 
-注意：
-1. 如果 edges 中使用了“返回输入阶段”节点的 id，必须在 nodes 中创建该节点。
-2. “返回输入阶段”节点不是结束节点，它必须有一条回到输入节点的边。
+真实输入节点通常包含：
+- 用户输入
+- 用户提交
+- 读取用户输入
+- 输入参数
+- 输入账号
+- 提交需求
+
+不要把以下节点当作真实输入节点：
+- 提示用户补充信息
+- 提示用户重新输入
+- 输出结果
+- 显示欢迎信息
 ====================
 简短示例
 ====================
@@ -449,6 +479,9 @@ def extract_branch_flow(user_input: str) -> BranchFlowSpec:
         raise RuntimeError(f"Ollama 返回内容不是合法 JSON：{e}\n原始输出：\n{raw_json}")
 
     branch_spec = BranchFlowSpec.model_validate(data)
+
+    # 0. 修复或删除非法 edge，例如 target=""
+    branch_spec = repair_or_remove_invalid_edges(branch_spec)
 
     # 1. 自动修复模型可能漏掉的确定性回边
     branch_spec = repair_missing_back_edges(branch_spec)
@@ -768,10 +801,42 @@ def repair_feedback_loop_edges(spec: BranchFlowSpec) -> BranchFlowSpec:
             or "补充信息" in text
             or "补充需求" in text
         ):
-            input_nodes = [
-                n for n in spec.nodes
-                if n.kind == "input_output"
+            input_keywords = [
+                "用户输入",
+                "用户提交",
+                "读取用户输入",
+                "输入账号",
+                "输入参数",
+                "提交需求",
+                "提交流程",
+                "上传",
             ]
+
+            output_like_keywords = [
+                "提示",
+                "输出",
+                "显示",
+                "生成成功",
+                "欢迎信息",
+                "结果摘要",
+            ]
+
+            input_nodes = []
+
+            for n in spec.nodes:
+                n_text = norm(n.text)
+
+                if n.kind != "input_output":
+                    continue
+
+                # 排除提示 / 输出 / 显示类节点
+                if any(keyword in n_text for keyword in output_like_keywords):
+                    continue
+
+                # 只保留真正的输入入口
+                if any(keyword in n_text for keyword in input_keywords):
+                    input_nodes.append(n)
+
             return latest_before(node.id, input_nodes)
 
         # 2. JSON 修复 / 重新检查 JSON -> 回到 JSON 判断/检查节点
@@ -1669,7 +1734,192 @@ def repair_decision_edge_labels_generic(spec: BranchFlowSpec) -> BranchFlowSpec:
 
     return spec
 # ============================================================
-# Part 7. 自动修复缺失回边
+# Part 7. 修复或删除非法连线
+# 作用：
+# 1. 删除 source 或 target 为空的非法 edge
+# 2. 删除 source 或 target 引用不存在节点的非法 edge
+# 3. 如果 target 为空，但 source 节点具有明显终止语义
+#    例如“拒绝访问 / 终止 / 结束 / 停止”，则尝试连接到已有结束节点
+# 4. 避免非法 edge 进入后续 repair / validator / Mermaid 渲染流程
+#
+# 注意：
+# 这是结构安全清理函数，不负责推断复杂业务逻辑。
+# 它只处理明显非法的连线，例如：
+#     K -> ""
+#     X -> A   其中 X 不存在于 nodes
+#     A -> Z   其中 Z 不存在于 nodes
+#
+# 调用位置：
+# 应放在 BranchFlowSpec.model_validate(data) 之后，
+# 并且放在所有其他后处理函数之前。
+# ============================================================
+
+def repair_or_remove_invalid_edges(spec: BranchFlowSpec) -> BranchFlowSpec:
+    """
+    修复或删除非法 edge。
+
+    处理情况：
+    1. source 或 target 为空
+    2. source 或 target 不存在于 nodes
+    3. 如果 target 为空，但 source 节点有明显终止语义，
+       则尝试连接到已有的结束节点
+    4. 如果无法安全修复，则删除该 edge
+
+    典型修复：
+        拒绝访问 -> ""
+    修复为：
+        拒绝访问 -> 结束流程
+    """
+
+    if not spec.edges:
+        return spec
+
+    def norm(text) -> str:
+        if text is None:
+            return ""
+        return str(text).replace(" ", "").replace("\n", "").replace("\t", "")
+
+    node_by_id = {node.id: node for node in spec.nodes}
+    valid_node_ids = set(node_by_id.keys())
+    EdgeType = type(spec.edges[0])
+
+    def is_terminal_like_node(node) -> bool:
+        """
+        判断一个节点是否具有终止语义。
+        这类节点如果 target 为空，可以安全地连到结束节点。
+        """
+        text = norm(node.text)
+
+        terminal_keywords = [
+            "结束",
+            "终止",
+            "停止",
+            "拒绝访问",
+            "访问拒绝",
+            "流程结束",
+            "任务结束",
+            "退出",
+            "失败结束",
+            "不再处理",
+        ]
+
+        return any(keyword in text for keyword in terminal_keywords)
+
+    def find_end_node():
+        """
+        找已有的结束节点。
+        优先找 kind=start_end 且文本包含结束/终止的节点。
+        """
+        for node in spec.nodes:
+            text = norm(node.text)
+
+            if node.kind == "start_end" and (
+                "结束" in text
+                or "终止" in text
+                or "完成" in text
+                or "End" in text
+            ):
+                return node
+
+        for node in spec.nodes:
+            text = norm(node.text)
+
+            if "结束" in text or "终止" in text or "完成" in text:
+                return node
+
+        return None
+
+    end_node = find_end_node()
+    cleaned_edges = []
+    existing_pairs = set()
+
+    for edge in spec.edges:
+        source = getattr(edge, "source", None)
+        target = getattr(edge, "target", None)
+        label = getattr(edge, "label", "") or ""
+
+        source = str(source).strip() if source is not None else ""
+        target = str(target).strip() if target is not None else ""
+
+        # 情况 1：source 为空，无法修复，删除
+        if not source:
+            print(
+                f"[cleanup] remove invalid edge with empty source: "
+                f"{source} -> {target}"
+            )
+            continue
+
+        # 情况 2：source 不存在，无法修复，删除
+        if source not in valid_node_ids:
+            print(
+                f"[cleanup] remove invalid edge with unknown source: "
+                f"{source} -> {target}"
+            )
+            continue
+
+        # 情况 3：target 为空，尝试修复到结束节点
+        if not target:
+            source_node = node_by_id.get(source)
+
+            if (
+                source_node is not None
+                and end_node is not None
+                and is_terminal_like_node(source_node)
+                and source != end_node.id
+            ):
+                repaired_edge = EdgeType(
+                    source=source,
+                    target=end_node.id,
+                    label=label
+                )
+
+                edge_key = (
+                    repaired_edge.source,
+                    repaired_edge.target,
+                    getattr(repaired_edge, "label", "") or ""
+                )
+
+                if edge_key not in existing_pairs:
+                    cleaned_edges.append(repaired_edge)
+                    existing_pairs.add(edge_key)
+
+                print(
+                    f"[repair] repair empty target edge: "
+                    f"{source_node.id}({source_node.text}) -> "
+                    f"{end_node.id}({end_node.text})"
+                )
+
+            else:
+                print(
+                    f"[cleanup] remove invalid edge with empty target: "
+                    f"{source} -> {target}"
+                )
+
+            continue
+
+        # 情况 4：target 不存在，删除
+        if target not in valid_node_ids:
+            print(
+                f"[cleanup] remove invalid edge with unknown target: "
+                f"{source} -> {target}"
+            )
+            continue
+
+        # 情况 5：合法 edge，保留，同时做一次完全重复去重
+        edge_key = (source, target, label)
+
+        if edge_key in existing_pairs:
+            continue
+
+        cleaned_edges.append(edge)
+        existing_pairs.add(edge_key)
+
+    spec.edges = cleaned_edges
+
+    return spec
+
+# ============================================================
+# Part 8. 自动修复缺失回边
 # 作用：
 # 1. 修复“提示重新输入”没有回到输入节点的问题
 # 2. 修复“返回输入阶段”没有回到输入节点的问题
@@ -2008,19 +2258,57 @@ def repair_decision_branch_join(spec: BranchFlowSpec) -> BranchFlowSpec:
     def find_previous_input_node(current_index: int):
         """
         作用：
-        从当前节点往前找最近的输入类节点。
+        从当前节点往前找最近的“真实输入节点”。
 
         注意：
-        这里按你的要求没有修改优化点 A。
-        仍然要求 node.kind == "input_output"。
+        这里不能只根据 node.kind == "input_output" 判断。
+        因为 input_output 既可能是输入节点，也可能是输出/提示节点。
+
+        真实输入节点示例：
+        - 用户输入账号和密码
+        - 用户提交流程图生成需求
+        - 用户输入 API 请求参数
+
+        非输入节点示例：
+        - 提示用户补充登录信息
+        - 提示用户重新输入
+        - 输出给用户
+        - 显示欢迎信息
         """
+
+        input_keywords = [
+            "用户输入",
+            "用户提交",
+            "读取用户输入",
+            "输入账号",
+            "输入参数",
+            "提交需求",
+            "提交流程",
+            "上传",
+        ]
+
+        output_like_keywords = [
+            "提示",
+            "输出",
+            "显示",
+            "生成成功",
+            "欢迎信息",
+            "结果摘要",
+        ]
+
         for i in range(current_index - 1, -1, -1):
             node = spec.nodes[i]
-            text = node.text
+            text = node.text or ""
 
-            if node.kind == "input_output" and (
-                "输入" in text or "上传" in text or "提交" in text
-            ):
+            if node.kind != "input_output":
+                continue
+
+            # 排除提示/输出类 input_output，避免返回到“提示用户补充信息”
+            if any(keyword in text for keyword in output_like_keywords):
+                continue
+
+            # 只返回真正的输入类节点
+            if any(keyword in text for keyword in input_keywords):
                 return node
 
         return None
