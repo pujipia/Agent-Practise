@@ -1,0 +1,40 @@
+from models.flowchart_spec import FlowchartSpec
+
+
+NODE_TEMPLATE_MAP = {
+    "start_end": '{id}(["{label}"])',
+    "process": '{id}["{label}"]',
+    "decision": '{id}{{"{label}"}}',
+    "input_output": '{id}[/"{label}"/]',
+    "subroutine": '{id}[["{label}"]]',
+}
+
+
+def escape_text(text: str) -> str:
+    return text.replace('"', '\\"')
+
+
+def compile_flowchart(spec: FlowchartSpec) -> str:
+    lines = [f"flowchart {spec.direction}"]
+
+    for node in spec.nodes:
+        label = escape_text(node.text)
+
+        if node.kind == "start_end":
+            lines.append(f'{node.id}(["{label}"])')
+        elif node.kind == "decision":
+            lines.append(f'{node.id}{{"{label}"}}')
+        elif node.kind == "input_output":
+            lines.append(f'{node.id}[/"{label}"/]')
+        elif node.kind == "subroutine":
+            lines.append(f'{node.id}[["{label}"]]')
+        else:
+            lines.append(f'{node.id}["{label}"]')
+
+    for edge in spec.edges:
+        if edge.label:
+            lines.append(f'{edge.source} -->|{escape_text(edge.label)}| {edge.target}')
+        else:
+            lines.append(f'{edge.source} --> {edge.target}')
+
+    return "\n".join(lines)
