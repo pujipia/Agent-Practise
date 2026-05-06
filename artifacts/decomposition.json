@@ -1,0 +1,33 @@
+{
+  "modules": [
+    {
+      "name": "文件解析模块",
+      "responsibility": "解析上传的文件内容。"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "文件格式是否支持",
+      "options": [],
+      "description": "检查上传的文件格式是否被系统支持。"
+    }
+  ],
+  "flows": [
+    {
+      "source": "用户上传文件",
+      "target": "检查文件格式",
+      "condition": ""
+    },
+    {
+      "source": "检查文件格式",
+      "target": "文件解析模块",
+      "condition": "文件格式支持"
+    },
+    {
+      "source": "检查文件格式",
+      "target": "提示用户重新上传",
+      "condition": "文件格式不支持"
+    }
+  ],
+  "dependencies": []
+}

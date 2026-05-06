@@ -1,9 +1,11 @@
 from pathlib import Path
 
+
 from routers.flow_router import route_flow_type
 from branch_flow_extractor import extract_branch_flow, BranchFlowExtractor
 from agents.research_agent import extract_concepts
 from agents.decomposition_agent import extract_decomposition
+from utils.result_saver import save_research_result, save_decomposition_result
 
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
@@ -41,6 +43,10 @@ def main():
             print(
                 f"{index}. [{concept.type}] {concept.name} - {concept.description}"
             )
+        #save Research Agent 返回的consept_spec in json
+        research_output_path = save_research_result(concept_spec)
+
+        print(f"\nResearch Agent 结果已保存到：{research_output_path}")
 
     except Exception as e:
         print("\nResearch Agent 概念抽取失败，但不会影响流程图生成。")
@@ -66,6 +72,7 @@ def main():
                     f"{index}. {module.name} - {module.responsibility}"
                 )
 
+
             print("\n[Decisions]")
             for index, decision in enumerate(decomposition_spec.decisions, start=1):
                 options_text = " / ".join(decision.options) if decision.options else "无明确选项"
@@ -73,6 +80,7 @@ def main():
                     f"{index}. {decision.question} "
                     f"(options: {options_text}) - {decision.description}"
                 )
+
 
             print("\n[Flows]")
             for index, flow in enumerate(decomposition_spec.flows, start=1):
@@ -86,11 +94,15 @@ def main():
                         f"{index}. {flow.source} -> {flow.target}"
                     )
 
+
             print("\n[Dependencies]")
             for index, dependency in enumerate(decomposition_spec.dependencies, start=1):
                 print(
                     f"{index}. [{dependency.type}] {dependency.name} - {dependency.description}"
                 )
+            decomposition_output_path = save_decomposition_result(decomposition_spec)
+            print(f"\nDecomposition Agent 结果已保存到：{decomposition_output_path}")
+
 
         except Exception as e:
             print("\nDecomposition Agent 拆解失败，但不会影响流程图生成。")
