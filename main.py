@@ -3,6 +3,7 @@ from pathlib import Path
 from routers.flow_router import route_flow_type
 from branch_flow_extractor import extract_branch_flow, BranchFlowExtractor
 from agents.research_agent import extract_concepts
+from agents.decomposition_agent import extract_decomposition
 
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
@@ -29,9 +30,11 @@ def main():
     # 1. 从用户输入 / 文档内容中抽取关键概念
     # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
     # ============================================================
+#set a default value to concept_spec
+    concept_spec = None
 
-    try:  #旁路抽取概念
-        concept_spec = extract_concepts(user_input) #调用Research Agent
+    try:
+        concept_spec = extract_concepts(user_input)
 
         print("\nResearch Agent 概念抽取结果：")
         for index, concept in enumerate(concept_spec.concepts, start=1):
@@ -39,10 +42,63 @@ def main():
                 f"{index}. [{concept.type}] {concept.name} - {concept.description}"
             )
 
-    except Exception as e: #如果try中的调用出错，就进入except中不让程序崩溃
+    except Exception as e:
         print("\nResearch Agent 概念抽取失败，但不会影响流程图生成。")
         print(f"错误信息：{e}")
 
+    # ============================================================
+    # Decomposition Agent：拆解系统结构
+    # 作用：
+    # 1. 根据 user_input 和 concepts 拆解 modules / decisions / flows / dependencies
+    # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
+    # 3. 如果 Research Agent 没有有效 concepts，则跳过 Decomposition
+    # ============================================================
+
+    if concept_spec is not None and concept_spec.concepts:
+        try:
+            decomposition_spec = extract_decomposition(user_input, concept_spec)
+
+            print("\nDecomposition Agent 系统拆解结果：")
+
+            print("\n[Modules]")
+            for index, module in enumerate(decomposition_spec.modules, start=1):
+                print(
+                    f"{index}. {module.name} - {module.responsibility}"
+                )
+
+            print("\n[Decisions]")
+            for index, decision in enumerate(decomposition_spec.decisions, start=1):
+                options_text = " / ".join(decision.options) if decision.options else "无明确选项"
+                print(
+                    f"{index}. {decision.question} "
+                    f"(options: {options_text}) - {decision.description}"
+                )
+
+            print("\n[Flows]")
+            for index, flow in enumerate(decomposition_spec.flows, start=1):
+                if flow.condition:
+                    print(
+                        f"{index}. {flow.source} -> {flow.target} "
+                        f"[condition: {flow.condition}]"
+                    )
+                else:
+                    print(
+                        f"{index}. {flow.source} -> {flow.target}"
+                    )
+
+            print("\n[Dependencies]")
+            for index, dependency in enumerate(decomposition_spec.dependencies, start=1):
+                print(
+                    f"{index}. [{dependency.type}] {dependency.name} - {dependency.description}"
+                )
+
+        except Exception as e:
+            print("\nDecomposition Agent 拆解失败，但不会影响流程图生成。")
+            print(f"错误信息：{e}")
+
+    else:
+        print("\nDecomposition Agent 已跳过：没有可用 concepts。")
+    
     flow_type = route_flow_type(user_input)
 
     print("\nRouter 判断结果：")
