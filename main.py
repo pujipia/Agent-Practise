@@ -1,15 +1,19 @@
+from pathlib import Path
+
 from routers.flow_router import route_flow_type
 from branch_flow_extractor import extract_branch_flow, BranchFlowExtractor
-from pathlib import Path
-from ingest.Input_reader import read_user_input
+from agents.research_agent import extract_concepts
 
+from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
-from builders.flowchart_builder import build_flowchart_from_linear
-from compilers.flowchart_compiler import compile_flowchart
-from utils.mermaid_renderer import render_mermaid_to_image
 from processors.linear_rule_extractor import extract_linear_flow_by_rule
 
+from builders.flowchart_builder import build_flowchart_from_linear
+from compilers.flowchart_compiler import compile_flowchart
+
+from utils.mermaid_renderer import render_mermaid_to_image
 from utils.loop_repairs import repair_loop_edges
+
 from validators.branch_validator import validate_branch_flow, print_validation_result
 
 def main():
@@ -18,6 +22,26 @@ def main():
     if not user_input:
         print("输入为空，程序结束。")
         return
+
+    # ============================================================
+    # Research Agent：抽取关键概念
+    # 作用：
+    # 1. 从用户输入 / 文档内容中抽取关键概念
+    # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
+    # ============================================================
+
+    try:  #旁路抽取概念
+        concept_spec = extract_concepts(user_input) #调用Research Agent
+
+        print("\nResearch Agent 概念抽取结果：")
+        for index, concept in enumerate(concept_spec.concepts, start=1):
+            print(
+                f"{index}. [{concept.type}] {concept.name} - {concept.description}"
+            )
+
+    except Exception as e: #如果try中的调用出错，就进入except中不让程序崩溃
+        print("\nResearch Agent 概念抽取失败，但不会影响流程图生成。")
+        print(f"错误信息：{e}")
 
     flow_type = route_flow_type(user_input)
 

@@ -23,5 +23,5 @@ class ConceptListSpec(BaseModel):
 
     concepts: List[ConceptItem] = Field(
         default_factory=list,
-        description="从用户输入或工程文档中抽取出的关键概念列表"
+        description="从用户输入或工程文档中抽取出的关键概念列表，不能为空"
     )
