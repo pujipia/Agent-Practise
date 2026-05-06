@@ -1,75 +1,116 @@
+from pathlib import Path
+
+
 from routers.flow_router import route_flow_type
 from branch_flow_extractor import extract_branch_flow, BranchFlowExtractor
-from pathlib import Path
-import re
+from agents.research_agent import extract_concepts
+from agents.decomposition_agent import extract_decomposition
+from utils.result_saver import save_research_result, save_decomposition_result
 
-from models.linear_flow_spec import LinearFlowSpec, StepItem
+from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
+from processors.linear_rule_extractor import extract_linear_flow_by_rule
+
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
-from utils.mermaid_renderer import render_mermaid_to_image
 
+from utils.mermaid_renderer import render_mermaid_to_image
 from utils.loop_repairs import repair_loop_edges
+
 from validators.branch_validator import validate_branch_flow, print_validation_result
 
-
-def extract_linear_flow_by_rule(user_input: str) -> LinearFlowSpec:
-    """
-    不调用大模型，直接用规则从用户输入中提取线性流程步骤。
-    目的：先保证 linear flow 一定可以输出 Mermaid。
-    """
-
-    separators = [
-        "然后",
-        "接着",
-        "随后",
-        "之后",
-        "再",
-        "最后",
-        "最终",
-        "并且",
-        "，",
-        ",",
-        "->",
-        "→",
-    ]
-
-    pattern = "|".join(map(re.escape, separators))
-
-    raw_steps = re.split(pattern, user_input)
-
-    steps = []
-    for step in raw_steps:
-        step = step.strip()
-        if step:
-            steps.append(step)
-
-    if not steps:
-        steps = [user_input.strip()]
-
-    step_items = []
-
-    for i, step in enumerate(steps):
-        if i == 0:
-            role = "start"
-        elif i == len(steps) - 1:
-            role = "end"
-        else:
-            role = "process"
-
-        step_items.append(
-            StepItem(
-                text=step,
-                role=role,
-            )
-        )
-
-    return LinearFlowSpec(steps=step_items)
-
-
 def main():
-    user_input = input("请输入流程描述：")
+    user_input = read_user_input()
 
+    if not user_input:
+        print("输入为空，程序结束。")
+        return
+
+    # ============================================================
+    # Research Agent：抽取关键概念
+    # 作用：
+    # 1. 从用户输入 / 文档内容中抽取关键概念
+    # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
+    # ============================================================
+#set a default value to concept_spec
+    concept_spec = None
+
+    try:
+        concept_spec = extract_concepts(user_input)
+
+        print("\nResearch Agent 概念抽取结果：")
+        for index, concept in enumerate(concept_spec.concepts, start=1):
+            print(
+                f"{index}. [{concept.type}] {concept.name} - {concept.description}"
+            )
+        #save Research Agent 返回的consept_spec in json
+        research_output_path = save_research_result(concept_spec)
+
+        print(f"\nResearch Agent 结果已保存到：{research_output_path}")
+
+    except Exception as e:
+        print("\nResearch Agent 概念抽取失败，但不会影响流程图生成。")
+        print(f"错误信息：{e}")
+
+    # ============================================================
+    # Decomposition Agent：拆解系统结构
+    # 作用：
+    # 1. 根据 user_input 和 concepts 拆解 modules / decisions / flows / dependencies
+    # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
+    # 3. 如果 Research Agent 没有有效 concepts，则跳过 Decomposition
+    # ============================================================
+
+    if concept_spec is not None and concept_spec.concepts:
+        try:
+            decomposition_spec = extract_decomposition(user_input, concept_spec)
+
+            print("\nDecomposition Agent 系统拆解结果：")
+
+            print("\n[Modules]")
+            for index, module in enumerate(decomposition_spec.modules, start=1):
+                print(
+                    f"{index}. {module.name} - {module.responsibility}"
+                )
+
+
+            print("\n[Decisions]")
+            for index, decision in enumerate(decomposition_spec.decisions, start=1):
+                options_text = " / ".join(decision.options) if decision.options else "无明确选项"
+                print(
+                    f"{index}. {decision.question} "
+                    f"(options: {options_text}) - {decision.description}"
+                )
+
+
+            print("\n[Flows]")
+            for index, flow in enumerate(decomposition_spec.flows, start=1):
+                if flow.condition:
+                    print(
+                        f"{index}. {flow.source} -> {flow.target} "
+                        f"[condition: {flow.condition}]"
+                    )
+                else:
+                    print(
+                        f"{index}. {flow.source} -> {flow.target}"
+                    )
+
+
+            print("\n[Dependencies]")
+            for index, dependency in enumerate(decomposition_spec.dependencies, start=1):
+                print(
+                    f"{index}. [{dependency.type}] {dependency.name} - {dependency.description}"
+                )
+            decomposition_output_path = save_decomposition_result(decomposition_spec)
+            print(f"\nDecomposition Agent 结果已保存到：{decomposition_output_path}")
+
+
+        except Exception as e:
+            print("\nDecomposition Agent 拆解失败，但不会影响流程图生成。")
+            print(f"错误信息：{e}")
+
+    else:
+        print("\nDecomposition Agent 已跳过：没有可用 concepts。")
+    
     flow_type = route_flow_type(user_input)
 
     print("\nRouter 判断结果：")
