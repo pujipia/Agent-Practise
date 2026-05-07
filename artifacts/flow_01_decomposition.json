@@ -2,14 +2,14 @@
   "modules": [
     {
       "name": "登录验证模块",
-      "responsibility": "验证用户提供的登录信息是否正确"
+      "responsibility": "调用登录验证模块进行验证。"
     }
   ],
   "decisions": [
     {
-      "question": "登录信息是否完整",
+      "question": "登录信息是否完整？",
       "options": [],
-      "description": "系统检查用户提供的登录信息是否完整，如果完整则继续，否则提示用户重新输入"
+      "description": "系统检查登录信息是否完整，决定是否继续流程。"
     }
   ],
   "flows": [

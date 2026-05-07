@@ -2,12 +2,12 @@
   "modules": [
     {
       "name": "文件解析模块",
-      "responsibility": "解析支持的文件格式，提取所需数据。"
+      "responsibility": "解析支持格式的文件内容。"
     }
   ],
   "decisions": [
     {
-      "question": "文件格式是否支持",
+      "question": "文件格式是否支持？",
       "options": [],
       "description": "判断上传的文件格式是否在支持列表中。"
     }
