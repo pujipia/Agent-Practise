@@ -1,0 +1,210 @@
+{
+  "modules": [
+    {
+      "name": "用户输入处理",
+      "responsibility": "处理用户输入，包括流程描述或上传文档"
+    },
+    {
+      "name": "输入为空判断",
+      "responsibility": "判断用户输入内容是否为空"
+    },
+    {
+      "name": "提示重新输入",
+      "responsibility": "当输入为空时，提示用户重新输入"
+    },
+    {
+      "name": "Flow Segmenter",
+      "responsibility": "调用 Flow Segmenter 模块切分流程"
+    },
+    {
+      "name": "多个流程检测",
+      "responsibility": "判断是否检测到多个流程"
+    },
+    {
+      "name": "逐个处理流程",
+      "responsibility": "逐个处理每个流程片段"
+    },
+    {
+      "name": "默认流程处理",
+      "responsibility": "直接处理默认流程"
+    },
+    {
+      "name": "Research Agent",
+      "responsibility": "调用 Research Agent 抽取关键概念"
+    },
+    {
+      "name": "concepts 为空判断",
+      "responsibility": "判断抽取的关键概念是否为空"
+    },
+    {
+      "name": "retry 处理",
+      "responsibility": "当 concepts 为空时，触发重新抽取"
+    },
+    {
+      "name": "Decomposition Agent",
+      "responsibility": "调用 Decomposition Agent 进行系统拆解"
+    },
+    {
+      "name": "Router",
+      "responsibility": "调用 Router 判断流程类型"
+    },
+    {
+      "name": "linear rule extractor",
+      "responsibility": "当流程类型为 linear 时，调用 linear rule extractor"
+    },
+    {
+      "name": "branch flow extractor",
+      "responsibility": "当流程类型为 branch 时，调用 branch flow extractor"
+    },
+    {
+      "name": "暂不支持提示",
+      "responsibility": "当流程类型不支持时，提示用户"
+    },
+    {
+      "name": "Mermaid 代码生成",
+      "responsibility": "生成 Mermaid 代码"
+    },
+    {
+      "name": "Mermaid 渲染检查",
+      "responsibility": "检查 Mermaid 是否可以渲染"
+    },
+    {
+      "name": "Mermaid 渲染失败提示",
+      "responsibility": "当 Mermaid 不能渲染时，提示用户检查"
+    },
+    {
+      "name": "保存 Mermaid 和 SVG",
+      "responsibility": "当 Mermaid 可以渲染时，保存相关文件"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "用户输入是否为空",
+      "options": [],
+      "description": "判断用户输入内容是否为空"
+    },
+    {
+      "question": "是否检测到多个流程",
+      "options": [],
+      "description": "判断是否检测到多个流程"
+    },
+    {
+      "question": "concepts 是否为空",
+      "options": [],
+      "description": "判断抽取的关键概念是否为空"
+    },
+    {
+      "question": "流程类型是什么",
+      "options": [],
+      "description": "判断流程类型是否为 linear 或 branch"
+    },
+    {
+      "question": "Mermaid 是否可以渲染",
+      "options": [],
+      "description": "检查 Mermaid 代码是否可以渲染"
+    }
+  ],
+  "flows": [
+    {
+      "source": "用户输入处理",
+      "target": "输入为空判断",
+      "condition": ""
+    },
+    {
+      "source": "输入为空判断",
+      "target": "提示重新输入",
+      "condition": "输入为空"
+    },
+    {
+      "source": "输入为空判断",
+      "target": "Flow Segmenter",
+      "condition": "输入不为空"
+    },
+    {
+      "source": "Flow Segmenter",
+      "target": "多个流程检测",
+      "condition": ""
+    },
+    {
+      "source": "多个流程检测",
+      "target": "逐个处理流程",
+      "condition": "检测到多个流程"
+    },
+    {
+      "source": "多个流程检测",
+      "target": "默认流程处理",
+      "condition": "只检测到一个流程"
+    },
+    {
+      "source": "逐个处理流程",
+      "target": "Research Agent",
+      "condition": ""
+    },
+    {
+      "source": "默认流程处理",
+      "target": "Research Agent",
+      "condition": ""
+    },
+    {
+      "source": "Research Agent",
+      "target": "concepts 为空判断",
+      "condition": ""
+    },
+    {
+      "source": "concepts 为空判断",
+      "target": "retry 处理",
+      "condition": "concepts 为空"
+    },
+    {
+      "source": "concepts 为空判断",
+      "target": "Decomposition Agent",
+      "condition": "concepts 不为空"
+    },
+    {
+      "source": "Decomposition Agent",
+      "target": "Router",
+      "condition": ""
+    },
+    {
+      "source": "Router",
+      "target": "linear rule extractor",
+      "condition": "流程类型为 linear"
+    },
+    {
+      "source": "Router",
+      "target": "branch flow extractor",
+      "condition": "流程类型为 branch"
+    },
+    {
+      "source": "Router",
+      "target": "暂不支持提示",
+      "condition": "流程类型不支持"
+    },
+    {
+      "source": "暂不支持提示",
+      "target": "Router",
+      "condition": ""
+    },
+    {
+      "source": "暂不支持提示",
+      "target": "Router",
+      "condition": ""
+    },
+    {
+      "source": "Mermaid 代码生成",
+      "target": "Mermaid 渲染检查",
+      "condition": ""
+    },
+    {
+      "source": "Mermaid 渲染检查",
+      "target": "Mermaid 渲染失败提示",
+      "condition": "不能渲染"
+    },
+    {
+      "source": "Mermaid 渲染检查",
+      "target": "保存 Mermaid 和 SVG",
+      "condition": "可以渲染"
+    }
+  ],
+  "dependencies": []
+}

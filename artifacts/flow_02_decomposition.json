@@ -1,0 +1,91 @@
+{
+  "modules": [
+    {
+      "name": "文件解析模块",
+      "responsibility": "解析上传的文件内容"
+    },
+    {
+      "name": "错误记录模块",
+      "responsibility": "记录系统错误信息"
+    },
+    {
+      "name": "输出解析结果并保存文件信息",
+      "responsibility": "输出解析结果并保存文件信息"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "文件是否为空",
+      "options": [],
+      "description": "检查用户上传的文件是否为空"
+    },
+    {
+      "question": "文件格式是否支持",
+      "options": [],
+      "description": "检查用户上传的文件格式是否支持"
+    },
+    {
+      "question": "文件大小是否超过限制",
+      "options": [],
+      "description": "检查用户上传的文件大小是否超过限制"
+    },
+    {
+      "question": "文件解析是否成功",
+      "options": [],
+      "description": "判断文件解析是否成功"
+    }
+  ],
+  "flows": [
+    {
+      "source": "用户上传文件",
+      "target": "检查文件是否为空",
+      "condition": ""
+    },
+    {
+      "source": "检查文件是否为空",
+      "target": "提示用户重新上传",
+      "condition": "文件为空"
+    },
+    {
+      "source": "检查文件是否为空",
+      "target": "检查文件格式是否支持",
+      "condition": "文件不为空"
+    },
+    {
+      "source": "检查文件格式是否支持",
+      "target": "提示用户重新上传",
+      "condition": "文件格式不支持"
+    },
+    {
+      "source": "检查文件格式是否支持",
+      "target": "检查文件大小是否超过限制",
+      "condition": "文件格式支持"
+    },
+    {
+      "source": "检查文件大小是否超过限制",
+      "target": "提示用户压缩文件后重新上传",
+      "condition": "文件大小超过限制"
+    },
+    {
+      "source": "检查文件大小是否超过限制",
+      "target": "调用文件解析模块",
+      "condition": "文件大小未超过限制"
+    },
+    {
+      "source": "调用文件解析模块",
+      "target": "判断文件解析是否成功",
+      "condition": ""
+    },
+    {
+      "source": "判断文件解析是否成功",
+      "target": "调用错误记录模块并提示用户重新上传",
+      "condition": "解析失败"
+    },
+    {
+      "source": "判断文件解析是否成功",
+      "target": "输出解析结果并保存文件信息",
+      "condition": "解析成功"
+    }
+  ],
+  "dependencies": []
+}

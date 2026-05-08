@@ -1,0 +1,146 @@
+{
+  "modules": [
+    {
+      "name": "用户提交项目申请",
+      "responsibility": "接收用户提交的项目申请。"
+    },
+    {
+      "name": "检查申请材料",
+      "responsibility": "检查用户提交的申请材料是否完整。"
+    },
+    {
+      "name": "提示用户补充材料",
+      "responsibility": "向用户提供补充材料的提示。"
+    },
+    {
+      "name": "提交给导师审核",
+      "responsibility": "将申请材料提交给导师进行审核。"
+    },
+    {
+      "name": "导师判断项目",
+      "responsibility": "导师对项目进行初步判断。"
+    },
+    {
+      "name": "退回给用户修改",
+      "responsibility": "将项目退回给用户进行修改。"
+    },
+    {
+      "name": "提交给学院审核",
+      "responsibility": "将项目提交给学院进行审核。"
+    },
+    {
+      "name": "学院判断项目",
+      "responsibility": "学院对项目进行进一步判断。"
+    },
+    {
+      "name": "安排专家评审",
+      "responsibility": "安排专家对项目进行评审。"
+    },
+    {
+      "name": "直接通过审批",
+      "responsibility": "直接通过项目的审批。"
+    },
+    {
+      "name": "专家判断项目",
+      "responsibility": "专家对项目进行评审判断。"
+    },
+    {
+      "name": "生成审批结果",
+      "responsibility": "生成项目的审批结果。"
+    },
+    {
+      "name": "通知用户",
+      "responsibility": "通知用户审批结果。"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "申请材料是否完整？",
+      "options": [],
+      "description": "判断申请材料是否完整，决定是否提示用户补充材料或提交给导师审核。"
+    },
+    {
+      "question": "项目是否符合要求？",
+      "options": [],
+      "description": "导师判断项目是否符合要求，决定是否退回修改或提交给学院审核。"
+    },
+    {
+      "question": "项目是否需要进一步评审？",
+      "options": [],
+      "description": "学院判断项目是否需要进一步评审，决定是否安排专家评审或直接通过审批。"
+    },
+    {
+      "question": "项目是否通过评审？",
+      "options": [],
+      "description": "专家判断项目是否通过评审，决定是否生成审批结果并通知用户或退回修改。"
+    }
+  ],
+  "flows": [
+    {
+      "source": "用户提交项目申请",
+      "target": "检查申请材料",
+      "condition": ""
+    },
+    {
+      "source": "检查申请材料",
+      "target": "提示用户补充材料",
+      "condition": "申请材料不完整"
+    },
+    {
+      "source": "检查申请材料",
+      "target": "提交给导师审核",
+      "condition": "申请材料完整"
+    },
+    {
+      "source": "提交给导师审核",
+      "target": "导师判断项目",
+      "condition": ""
+    },
+    {
+      "source": "导师判断项目",
+      "target": "退回给用户修改",
+      "condition": "项目不符合要求"
+    },
+    {
+      "source": "导师判断项目",
+      "target": "提交给学院审核",
+      "condition": "项目符合要求"
+    },
+    {
+      "source": "提交给学院审核",
+      "target": "学院判断项目",
+      "condition": ""
+    },
+    {
+      "source": "学院判断项目",
+      "target": "安排专家评审",
+      "condition": "需要进一步评审"
+    },
+    {
+      "source": "学院判断项目",
+      "target": "直接通过审批",
+      "condition": "不需要进一步评审"
+    },
+    {
+      "source": "安排专家评审",
+      "target": "专家判断项目",
+      "condition": ""
+    },
+    {
+      "source": "专家判断项目",
+      "target": "退回给用户修改",
+      "condition": "评审不通过"
+    },
+    {
+      "source": "专家判断项目",
+      "target": "生成审批结果",
+      "condition": "评审通过"
+    },
+    {
+      "source": "生成审批结果",
+      "target": "通知用户",
+      "condition": ""
+    }
+  ],
+  "dependencies": []
+}

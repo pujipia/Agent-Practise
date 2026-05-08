@@ -1,8 +1,17 @@
 from pathlib import Path
-
+from utils.console_logger import (
+    print_flow_start,
+    print_flow_summary,
+    print_saved_result,
+    print_stage,
+)
 
 from routers.flow_router import route_flow_type
-from branch_flow_extractor import extract_branch_flow, BranchFlowExtractor
+from branch_flow_extractor import (
+    extract_branch_flow,
+    extract_branch_flow_with_retry,
+    BranchFlowExtractor,
+)
 from agents.research_agent import extract_concepts
 from agents.decomposition_agent import extract_decomposition
 from utils.result_saver import save_research_result, save_decomposition_result
@@ -10,6 +19,7 @@ from utils.result_saver import save_research_result, save_decomposition_result
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
 from processors.linear_rule_extractor import extract_linear_flow_by_rule
+from processors.flow_segmenter import split_flow_segments
 
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
@@ -19,21 +29,24 @@ from utils.loop_repairs import repair_loop_edges
 
 from validators.branch_validator import validate_branch_flow, print_validation_result
 
-def main():
-    user_input = read_user_input()
+def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None: #aviod D-Agent mistakely use a unexisted variable
+    """
+    处理单个流程片段。
 
-    if not user_input:
-        print("输入为空，程序结束。")
-        return
+    当前职责：
+    1. 调用 Research Agent 抽取 concepts
+    2. 调用 Decomposition Agent 拆解 modules / decisions / flows / dependencies
+    3. 调用 Router 判断流程类型
+    4. 根据 branch / linear 分别生成 Mermaid 和 SVG
 
-    # ============================================================
-    # Research Agent：抽取关键概念
-    # 作用：
-    # 1. 从用户输入 / 文档内容中抽取关键概念
-    # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
-    # ============================================================
-#set a default value to concept_spec
+    output_prefix 当前先作为预留参数。
+    下一步支持多流程时，它会用于生成不同文件名，例如：
+    flow_01_branch.svg
+    flow_02_branch.svg
+    """
     concept_spec = None
+    decomposition_spec = None
+    print_stage(1, "Research Agent：概念抽取")
 
     try:
         concept_spec = extract_concepts(user_input)
@@ -44,9 +57,11 @@ def main():
                 f"{index}. [{concept.type}] {concept.name} - {concept.description}"
             )
         #save Research Agent 返回的consept_spec in json
-        research_output_path = save_research_result(concept_spec)
-
-        print(f"\nResearch Agent 结果已保存到：{research_output_path}")
+        research_output_path = save_research_result(
+            concept_spec,
+            output_prefix=output_prefix,
+        )
+        print_saved_result("Research Agent 结果", research_output_path)
 
     except Exception as e:
         print("\nResearch Agent 概念抽取失败，但不会影响流程图生成。")
@@ -59,6 +74,7 @@ def main():
     # 2. 当前阶段只做旁路预览，不影响 router 和流程图生成
     # 3. 如果 Research Agent 没有有效 concepts，则跳过 Decomposition
     # ============================================================
+    print_stage(2, "Decomposition Agent：系统拆解")
 
     if concept_spec is not None and concept_spec.concepts:
         try:
@@ -100,8 +116,11 @@ def main():
                 print(
                     f"{index}. [{dependency.type}] {dependency.name} - {dependency.description}"
                 )
-            decomposition_output_path = save_decomposition_result(decomposition_spec)
-            print(f"\nDecomposition Agent 结果已保存到：{decomposition_output_path}")
+            decomposition_output_path = save_decomposition_result(
+                decomposition_spec,
+                output_prefix=output_prefix,
+            )
+            print_saved_result("Decomposition Agent 结果", decomposition_output_path)         
 
 
         except Exception as e:
@@ -111,43 +130,54 @@ def main():
     else:
         print("\nDecomposition Agent 已跳过：没有可用 concepts。")
     
+    print_stage(3, "Router：流程类型判断")
     flow_type = route_flow_type(user_input)
 
     print("\nRouter 判断结果：")
     print(flow_type)
 
+    print_stage(4, "Flowchart Output：流程图生成")
     if flow_type == "branch":
-    # 1. 用 LLM 抽取 branch JSON
         branch_diagram = extract_branch_flow(user_input)
 
-    # 2. 修复返回 / 重新输入 / 再次输入这种循环边
         branch_diagram = repair_loop_edges(branch_diagram)
 
-    # 3. 校验 branch 结构
         errors, warnings = validate_branch_flow(branch_diagram, user_input)
         print_validation_result(errors, warnings)
 
         if errors:
-            print("\n检测到严重结构错误，建议先修复后再生成 Mermaid。")
+            print("\n第一次 branch 抽取存在结构错误，准备 retry 一次。")
+
+            branch_diagram = extract_branch_flow_with_retry(
+                user_input=user_input,
+                errors=errors,
+                previous_diagram=branch_diagram,
+            )
+
+            branch_diagram = repair_loop_edges(branch_diagram)
+
+            errors, warnings = validate_branch_flow(branch_diagram, user_input)
+            print_validation_result(errors, warnings)
+
+        if errors:
+            print("\nretry 后仍检测到严重结构错误，建议先修复后再生成 Mermaid。")
             return
 
-    # 4. 生成 Mermaid
         branch_result = BranchFlowExtractor(branch_diagram)
         mermaid_code = branch_result.to_mermaid()
 
         print("\nBranch Mermaid 结果：")
         print(mermaid_code)
 
-        # 4. 保存文件
         diagram_dir = Path("diagrams")
         diagram_dir.mkdir(exist_ok=True)
 
-        output_path = diagram_dir / "branch_flowchart.mmd"
+        output_path = diagram_dir / f"{output_prefix}_branch.mmd"
         output_path.write_text(mermaid_code, encoding="utf-8")
 
-        print(f"\n已保存到：{output_path}")
+        print_saved_result("Branch Mermaid 文件", output_path)
 
-        image_path = diagram_dir / "branch_flowchart.svg"
+        image_path = diagram_dir / f"{output_prefix}_branch.svg"
         render_mermaid_to_image(output_path, image_path)
 
     elif flow_type == "linear":
@@ -173,17 +203,50 @@ def main():
         diagram_dir = Path("diagrams")
         diagram_dir.mkdir(exist_ok=True)
 
-        output_path = diagram_dir / "flowchart.mmd"
+        output_path = diagram_dir / f"{output_prefix}_linear.mmd"
         output_path.write_text(mermaid_code, encoding="utf-8")
 
-        print(f"\n已保存到：{output_path}")
-        
-        image_path = diagram_dir / "branch_flowchart.svg"
+        print_saved_result("Linear Mermaid 文件", output_path)
+
+        image_path = diagram_dir / f"{output_prefix}_linear.svg"
         render_mermaid_to_image(output_path, image_path)
 
     else:
         print("\n暂不支持的流程类型：")
         print(flow_type)
+
+def main():
+    """
+    主入口函数。
+
+    当前职责：
+    1. 读取用户输入或文档内容
+    2. 使用 Flow Segmenter 判断输入中有几个流程
+    3. 逐个调用 process_single_flow() 处理每个流程
+    """
+
+    user_input = read_user_input()
+
+    if not user_input:
+        print("输入为空，程序结束。")
+        return
+
+    segment_list = split_flow_segments(user_input)
+
+    print_flow_summary(segment_list)
+
+    for index, segment in enumerate(segment_list.flows, start=1):
+        print_flow_start(
+            flow_id=segment.id,
+            flow_title=segment.title,
+            current_index=index,
+            total_count=len(segment_list.flows),
+        )
+
+        process_single_flow(
+            user_input=segment.content,
+            output_prefix=segment.id,
+        )
 
 
 if __name__ == "__main__":

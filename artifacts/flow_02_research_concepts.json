@@ -1,0 +1,49 @@
+{
+  "concepts": [
+    {
+      "name": "用户上传文件",
+      "type": "input",
+      "description": "用户上传文件作为输入"
+    },
+    {
+      "name": "检查文件是否为空",
+      "type": "decision",
+      "description": "判断文件是否为空"
+    },
+    {
+      "name": "提示用户重新上传",
+      "type": "process",
+      "description": "提示用户重新上传文件"
+    },
+    {
+      "name": "检查文件格式是否支持",
+      "type": "decision",
+      "description": "判断文件格式是否支持"
+    },
+    {
+      "name": "检查文件大小是否超过限制",
+      "type": "decision",
+      "description": "判断文件大小是否超过限制"
+    },
+    {
+      "name": "调用文件解析模块",
+      "type": "module",
+      "description": "调用文件解析模块进行解析"
+    },
+    {
+      "name": "判断文件解析是否成功",
+      "type": "decision",
+      "description": "判断文件解析是否成功"
+    },
+    {
+      "name": "调用错误记录模块",
+      "type": "module",
+      "description": "调用错误记录模块记录错误"
+    },
+    {
+      "name": "输出解析结果并保存文件信息",
+      "type": "process",
+      "description": "输出解析结果并保存文件信息"
+    }
+  ]
+}

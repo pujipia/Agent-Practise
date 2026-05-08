@@ -109,3 +109,26 @@ def repair_loop_edges(spec):
                     spec.edges.append(make_edge_like_existing(spec, node.id, target_id, label="返回"))
 
     return spec
+def remove_invalid_end_back_edges(branch_diagram):
+    """
+    删除错误的“结束”回边。
+
+    适用场景：
+    L -->|结束| A
+
+    这种边通常是模型为了避免空 target，
+    把“结束”错误地连回了起点。
+    """
+
+    edges = branch_diagram.edges
+
+    branch_diagram.edges = [
+        edge
+        for edge in edges
+        if not (
+            edge.label == "结束"
+            and edge.target == branch_diagram.nodes[0].id
+        )
+    ]
+
+    return branch_diagram

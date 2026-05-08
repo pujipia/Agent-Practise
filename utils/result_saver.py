@@ -26,23 +26,39 @@ def save_json_result(data: Any, output_path: str | Path) -> Path:
     return output_path
 
 
-def save_research_result(concept_spec: Any) -> Path:
+def save_research_result(
+    concept_spec: Any,
+    output_prefix: str = "latest",
+) -> Path:
     """
     保存 Research Agent 的 concepts 结果。
+
+    output_prefix 用于区分不同流程。
+    例如：
+    flow_01_research_concepts.json
+    flow_02_research_concepts.json
     """
 
     return save_json_result(
         concept_spec,
-        Path("artifacts") / "research_concepts.json",
+        Path("artifacts") / f"{output_prefix}_research_concepts.json",
     )
 
 
-def save_decomposition_result(decomposition_spec: Any) -> Path:
+def save_decomposition_result(
+    decomposition_spec: Any,
+    output_prefix: str = "latest",
+) -> Path:
     """
     保存 Decomposition Agent 的 decomposition 结果。
+
+    output_prefix 用于区分不同流程。
+    例如：
+    flow_01_decomposition.json
+    flow_02_decomposition.json
     """
 
     return save_json_result(
         decomposition_spec,
-        Path("artifacts") / "decomposition.json",
+        Path("artifacts") / f"{output_prefix}_decomposition.json",
     )

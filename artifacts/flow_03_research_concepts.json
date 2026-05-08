@@ -1,0 +1,114 @@
+{
+  "concepts": [
+    {
+      "name": "用户提交项目申请",
+      "type": "input",
+      "description": "用户提交项目申请，作为流程的起始点。"
+    },
+    {
+      "name": "检查申请材料",
+      "type": "process",
+      "description": "检查申请材料是否完整，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "申请材料不完整",
+      "type": "decision",
+      "description": "判断申请材料是否不完整，决定是否提示用户补充。"
+    },
+    {
+      "name": "提示用户补充材料",
+      "type": "process",
+      "description": "提示用户补充材料，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "申请材料完整",
+      "type": "decision",
+      "description": "判断申请材料是否完整，决定是否提交给导师审核。"
+    },
+    {
+      "name": "提交给导师审核",
+      "type": "process",
+      "description": "提交申请给导师审核，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "导师判断项目",
+      "type": "decision",
+      "description": "导师判断项目是否符合要求，决定是否退回修改。"
+    },
+    {
+      "name": "项目不符合要求",
+      "type": "decision",
+      "description": "判断项目是否不符合要求，决定是否退回给用户修改。"
+    },
+    {
+      "name": "退回给用户修改",
+      "type": "process",
+      "description": "退回项目给用户修改，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "项目符合要求",
+      "type": "decision",
+      "description": "判断项目是否符合要求，决定是否提交给学院审核。"
+    },
+    {
+      "name": "提交给学院审核",
+      "type": "process",
+      "description": "提交项目给学院审核，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "学院判断项目",
+      "type": "decision",
+      "description": "学院判断项目是否需要进一步评审，决定是否安排评审。"
+    },
+    {
+      "name": "需要进一步评审",
+      "type": "decision",
+      "description": "判断项目是否需要进一步评审，决定是否安排专家评审。"
+    },
+    {
+      "name": "安排专家评审",
+      "type": "process",
+      "description": "安排专家评审，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "不需要进一步评审",
+      "type": "decision",
+      "description": "判断项目是否不需要进一步评审，决定是否直接通过审批。"
+    },
+    {
+      "name": "直接通过审批",
+      "type": "process",
+      "description": "直接通过审批，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "专家判断项目",
+      "type": "decision",
+      "description": "专家判断项目是否通过评审，决定是否生成审批结果。"
+    },
+    {
+      "name": "评审不通过",
+      "type": "decision",
+      "description": "判断评审是否不通过，决定是否退回给用户修改。"
+    },
+    {
+      "name": "退回给用户修改",
+      "type": "process",
+      "description": "退回项目给用户修改，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "评审通过",
+      "type": "decision",
+      "description": "判断评审是否通过，决定是否生成审批结果并通知用户。"
+    },
+    {
+      "name": "生成审批结果",
+      "type": "process",
+      "description": "生成审批结果，是流程中的一个处理步骤。"
+    },
+    {
+      "name": "通知用户",
+      "type": "process",
+      "description": "通知用户审批结果，是流程中的一个处理步骤。"
+    }
+  ]
+}

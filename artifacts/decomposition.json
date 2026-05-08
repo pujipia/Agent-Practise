@@ -2,14 +2,14 @@
   "modules": [
     {
       "name": "文件解析模块",
-      "responsibility": "解析上传的文件内容。"
+      "responsibility": "解析支持的文件格式，提取所需数据。"
     }
   ],
   "decisions": [
     {
       "question": "文件格式是否支持",
       "options": [],
-      "description": "检查上传的文件格式是否被系统支持。"
+      "description": "判断上传的文件格式是否在支持列表中。"
     }
   ],
   "flows": [
@@ -20,7 +20,7 @@
     },
     {
       "source": "检查文件格式",
-      "target": "文件解析模块",
+      "target": "调用文件解析模块",
       "condition": "文件格式支持"
     },
     {

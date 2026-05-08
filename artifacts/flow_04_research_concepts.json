@@ -1,0 +1,99 @@
+{
+  "concepts": [
+    {
+      "name": "用户输入",
+      "type": "input",
+      "description": "用户输入流程描述或上传文档"
+    },
+    {
+      "name": "系统判断输入是否为空",
+      "type": "decision",
+      "description": "判断用户输入内容是否为空"
+    },
+    {
+      "name": "提示用户重新输入",
+      "type": "process",
+      "description": "当输入为空时，提示用户重新输入"
+    },
+    {
+      "name": "调用 Flow Segmenter",
+      "type": "module",
+      "description": "调用 Flow Segmenter 模块切分流程"
+    },
+    {
+      "name": "检测多个流程",
+      "type": "decision",
+      "description": "判断是否检测到多个流程"
+    },
+    {
+      "name": "逐个处理流程片段",
+      "type": "process",
+      "description": "逐个处理每个流程片段"
+    },
+    {
+      "name": "调用 Research Agent",
+      "type": "module",
+      "description": "调用 Research Agent 抽取关键概念"
+    },
+    {
+      "name": "判断 concepts 是否为空",
+      "type": "decision",
+      "description": "判断抽取的关键概念是否为空"
+    },
+    {
+      "name": "触发 retry",
+      "type": "process",
+      "description": "当 concepts 为空时，触发重新抽取"
+    },
+    {
+      "name": "调用 Decomposition Agent",
+      "type": "module",
+      "description": "调用 Decomposition Agent 进行系统拆解"
+    },
+    {
+      "name": "调用 Router",
+      "type": "module",
+      "description": "调用 Router 判断流程类型"
+    },
+    {
+      "name": "判断流程类型",
+      "type": "decision",
+      "description": "判断流程类型是否为 linear 或 branch"
+    },
+    {
+      "name": "调用 linear rule extractor",
+      "type": "module",
+      "description": "当流程类型为 linear 时，调用 linear rule extractor"
+    },
+    {
+      "name": "调用 branch flow extractor",
+      "type": "module",
+      "description": "当流程类型为 branch 时，调用 branch flow extractor"
+    },
+    {
+      "name": "提示暂不支持流程类型",
+      "type": "process",
+      "description": "当流程类型不支持时，提示用户"
+    },
+    {
+      "name": "生成 Mermaid 代码",
+      "type": "process",
+      "description": "生成 Mermaid 代码"
+    },
+    {
+      "name": "检查 Mermaid 渲染",
+      "type": "decision",
+      "description": "检查 Mermaid 是否可以渲染"
+    },
+    {
+      "name": "提示检查流程描述或 Mermaid 代码",
+      "type": "process",
+      "description": "当 Mermaid 不能渲染时，提示用户检查"
+    },
+    {
+      "name": "保存 Mermaid 文件和 SVG 图片",
+      "type": "process",
+      "description": "当 Mermaid 可以渲染时，保存相关文件"
+    }
+  ]
+}

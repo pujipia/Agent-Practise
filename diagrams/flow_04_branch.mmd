@@ -1,0 +1,47 @@
+%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%
+flowchart TD
+A[/"用户输入流程描述或上传文档"/]
+B{"系统判断输入内容是否为空"}
+C[/"提示用户重新输入"/]
+D[["调用 Flow Segmenter 切分流程"]]
+E{"系统判断是否检测到多个流程"}
+F[["逐个处理每个流程片段"]]
+G[["直接处理默认流程"]]
+H[["调用 Research Agent 抽取关键概念"]]
+I{"系统判断 concepts 是否为空"}
+J[["触发 retry 重新抽取"]]
+K[["调用 Decomposition Agent 进行系统拆解"]]
+L{"系统调用 Router 判断流程类型"}
+M[["调用 linear rule extractor"]]
+N[["调用 branch flow extractor"]]
+O[/"提示暂不支持该流程类型"/]
+Q[["生成 Mermaid 代码"]]
+R{"系统检查 Mermaid 是否可以渲染"}
+S[/"提示用户检查流程描述或 Mermaid 代码"/]
+T[["保存 Mermaid 文件和 SVG 图片"]]
+
+A --> B
+B -->|为空| C
+C -.->|返回| A
+B -->|不为空| D
+D --> E
+E -->|是| F
+E -->|否| G
+F --> E
+G --> E
+H --> I
+I -->|为空| J
+J -.->|返回| H
+I -->|不为空| K
+K --> L
+L -->|linear| M
+L -->|branch| N
+L -->|不支持| O
+M --> L
+N --> L
+O --> L
+Q --> R
+R -->|不能渲染| S
+S -.->|返回| Q
+R -->|可以渲染| T
+T --> R
