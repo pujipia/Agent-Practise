@@ -138,7 +138,6 @@ def _has_branch_condition_in_decomposition(decomposition_spec: Any) -> bool:
     - complete / incomplete
     - supported / unsupported
 
-    则认为这是 branch。
     """
 
     flows = _get_items(decomposition_spec, "flows")
@@ -296,12 +295,12 @@ def route_flow_type(
         return "branch"
 
     # 3. 再根据 Decomposition Agent 的 decisions 辅助判断
-    if _has_decision_in_decomposition(decomposition_spec):
-        return "branch"
+    #if _has_decision_in_decomposition(decomposition_spec):
+        #return "branch"
 
     # 4. 最后根据 Research Agent concepts 兜底判断
-    if _has_branch_signal_in_concepts(concept_spec):
-        return "branch"
+   # if _has_branch_signal_in_concepts(concept_spec):
+        #eturn "branch"
 
     # 5. 默认线性流程
     return "linear"
