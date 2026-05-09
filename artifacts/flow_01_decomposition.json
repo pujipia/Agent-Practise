@@ -1,67 +1,32 @@
 {
   "modules": [
     {
-      "name": "登录验证模块",
-      "responsibility": "调用登录验证模块"
+      "name": "文件解析模块",
+      "responsibility": "解析上传的文件内容"
     }
   ],
   "decisions": [
     {
-      "question": "登录信息是否完整",
+      "question": "文件格式是否支持？",
       "options": [],
-      "description": "检查用户输入的账号和密码是否完整"
-    },
-    {
-      "question": "账号密码是否正确",
-      "options": [],
-      "description": "判断用户输入的账号密码是否正确"
-    },
-    {
-      "question": "用户是否具有访问权限",
-      "options": [],
-      "description": "判断用户是否具有访问权限"
+      "description": "判断上传文件的格式是否被系统支持"
     }
   ],
   "flows": [
     {
-      "source": "用户输入账号和密码",
-      "target": "登录信息是否完整",
+      "source": "用户上传文件",
+      "target": "检查文件格式",
       "condition": ""
     },
     {
-      "source": "登录信息是否完整",
-      "target": "提示用户重新输入",
-      "condition": "登录信息不完整"
+      "source": "检查文件格式",
+      "target": "调用文件解析模块",
+      "condition": "文件格式支持"
     },
     {
-      "source": "登录信息是否完整",
-      "target": "登录验证模块",
-      "condition": "登录信息完整"
-    },
-    {
-      "source": "登录验证模块",
-      "target": "账号密码是否正确",
-      "condition": ""
-    },
-    {
-      "source": "账号密码是否正确",
-      "target": "提示用户重新登录",
-      "condition": "账号密码错误"
-    },
-    {
-      "source": "账号密码是否正确",
-      "target": "用户是否具有访问权限",
-      "condition": "账号密码正确"
-    },
-    {
-      "source": "用户是否具有访问权限",
-      "target": "显示无权限提示",
-      "condition": "用户没有访问权限"
-    },
-    {
-      "source": "用户是否具有访问权限",
-      "target": "系统首页",
-      "condition": "用户具有访问权限"
+      "source": "检查文件格式",
+      "target": "询问用户重新上传",
+      "condition": "文件格式不支持"
     }
   ],
   "dependencies": []

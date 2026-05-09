@@ -1,34 +1,24 @@
 {
   "concepts": [
     {
-      "name": "用户输入账号和密码",
+      "name": "用户上传文件",
       "type": "input",
-      "description": "用户输入账号和密码"
+      "description": "用户上传文件作为输入"
     },
     {
-      "name": "系统检查登录信息是否完整",
+      "name": "检查文件格式",
       "type": "decision",
-      "description": "检查登录信息是否完整"
+      "description": "判断文件格式是否被支持"
     },
     {
-      "name": "登录验证模块",
+      "name": "调用文件解析模块",
       "type": "module",
-      "description": "调用登录验证模块"
+      "description": "调用文件解析模块来处理文件"
     },
     {
-      "name": "系统判断账号密码是否正确",
-      "type": "decision",
-      "description": "判断账号密码是否正确"
-    },
-    {
-      "name": "用户访问权限",
-      "type": "decision",
-      "description": "判断用户是否具有访问权限"
-    },
-    {
-      "name": "系统首页",
+      "name": "询问用户重新上传",
       "type": "process",
-      "description": "进入系统首页并加载用户菜单"
+      "description": "询问用户重新上传文件"
     }
   ]
 }

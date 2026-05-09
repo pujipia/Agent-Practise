@@ -15,6 +15,7 @@ from branch_flow_extractor import (
 from agents.research_agent import extract_concepts
 from agents.decomposition_agent import extract_decomposition
 from utils.result_saver import save_research_result, save_decomposition_result
+from utils.agent_pipeline_repairs import repair_agent_pipeline_edges
 
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
@@ -131,7 +132,12 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
         print("\nDecomposition Agent 已跳过：没有可用 concepts。")
     
     print_stage(3, "Router：流程类型判断")
-    flow_type = route_flow_type(user_input)
+
+    flow_type = route_flow_type(
+        user_input=user_input,
+        concept_spec=concept_spec,
+        decomposition_spec=decomposition_spec,
+    )
 
     print("\nRouter 判断结果：")
     print(flow_type)
@@ -139,6 +145,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
     print_stage(4, "Flowchart Output：流程图生成")
     if flow_type == "branch":
         branch_diagram = extract_branch_flow(user_input)
+        branch_diagram = repair_agent_pipeline_edges(branch_diagram)
 
         branch_diagram = repair_loop_edges(branch_diagram)
 
@@ -153,7 +160,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
                 errors=errors,
                 previous_diagram=branch_diagram,
             )
-
+            branch_diagram = repair_agent_pipeline_edges(branch_diagram)
             branch_diagram = repair_loop_edges(branch_diagram)
 
             errors, warnings = validate_branch_flow(branch_diagram, user_input)
