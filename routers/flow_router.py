@@ -6,7 +6,7 @@ def _normalize_text(text: Any) -> str:
     将任意输入转换成统一的小写字符串。
 
     作用：
-    1. 避免 None 导致报错
+    1. 避免 None 报错
     2. 英文判断时不区分大小写
     3. 去掉空格和换行，方便匹配 not empty / notempty 这类表达
     """
@@ -57,69 +57,37 @@ def _get_attr(item: Any, field_name: str, default: str = "") -> str:
 
 def _has_branch_signal_in_user_input(user_input: str) -> bool:
     """
-    判断原始输入中是否存在明显的分支语义。
+    判断原始输入中是否存在明显的“结构性分支语义”。
 
-    中文：
-    如果 / 是否 / 判断 / 检查 / 成功失败 / 通过不通过
+    注意：
+    不要把“成功 / 失败 / 支持 / 不支持 / 完整 / 不完整”这类结果词
+    单独作为 user_input 的 branch 判断依据。
 
-    英文：
-    if / whether / check / validate / success / failure / pass / fail
+    原因：
+    “系统显示提交成功信息”是线性输出，不是分支判断。
     """
 
     normalized = _normalize_text(user_input)
 
     branch_keywords = [
-        # Chinese
+        # Chinese structural branch signals
         "如果",
         "是否",
         "判断",
         "检查",
         "校验",
         "验证",
-        "正确",
-        "不正确",
-        "通过",
-        "不通过",
-        "成功",
-        "失败",
         "否则",
         "若",
-        "条件",
-        "为空",
-        "不为空",
-        "支持",
-        "不支持",
-        "完整",
-        "不完整",
-        "合法",
-        "不合法",
-        "需要",
-        "不需要",
+        "能否",
 
-        # English
+        # English structural branch signals
         "if",
         "whether",
         "check",
         "validate",
         "verify",
-        "success",
-        "failure",
-        "pass",
-        "fail",
         "otherwise",
-        "condition",
-        "empty",
-        "notempty",
-        "supported",
-        "unsupported",
-        "complete",
-        "incomplete",
-        "correct",
-        "incorrect",
-        "valid",
-        "invalid",
-        "required",
-        "notrequired",
     ]
 
     return any(keyword in normalized for keyword in branch_keywords)
@@ -127,25 +95,36 @@ def _has_branch_signal_in_user_input(user_input: str) -> bool:
 
 def _has_branch_condition_in_decomposition(decomposition_spec: Any) -> bool:
     """
-    根据 Decomposition Agent 的 flows 判断是否存在分支条件。
+    根据 Decomposition Agent 的 flows.condition 判断是否存在真正的分支条件。
 
-    核心逻辑：
-    如果 flows 里出现明显的 condition，例如：
-    - 为空 / 不为空
-    - 支持 / 不支持
-    - 成功 / 失败
-    - 通过 / 不通过
-    - complete / incomplete
-    - supported / unsupported
+    注意：
+    不能只要 condition 非空就判断为 branch。
 
+    例如：
+    - 无条件
+    - none
+    - no condition
+    - unconditional
+
+    这些都不是分支。
     """
 
     flows = _get_items(decomposition_spec, "flows")
 
+    neutral_conditions = [
+        "",
+        "无",
+        "无条件",
+        "none",
+        "nocondition",
+        "no条件",
+        "unconditional",
+        "n/a",
+        "na",
+    ]
+
     branch_condition_keywords = [
-        # Chinese
-        "是",
-        "否",
+        # Chinese branch outcomes
         "为空",
         "不为空",
         "支持",
@@ -162,8 +141,12 @@ def _has_branch_condition_in_decomposition(decomposition_spec: Any) -> bool:
         "不合法",
         "需要",
         "不需要",
+        "为true",
+        "为false",
+        "true",
+        "false",
 
-        # English
+        # English branch outcomes
         "yes",
         "no",
         "empty",
@@ -189,83 +172,11 @@ def _has_branch_condition_in_decomposition(decomposition_spec: Any) -> bool:
     for flow in flows:
         condition = _normalize_text(_get_attr(flow, "condition", ""))
 
-        if not condition:
+        # 明确排除“无条件”
+        if condition in neutral_conditions:
             continue
 
         if any(keyword in condition for keyword in branch_condition_keywords):
-            return True
-
-    return False
-
-
-def _has_decision_in_decomposition(decomposition_spec: Any) -> bool:
-    """
-    根据 Decomposition Agent 的 decisions 判断是否存在判断节点。
-
-    注意：
-    这里只作为辅助判断。
-    如果 Decomposition Agent 明确拆出了 decisions，
-    通常说明输入中存在判断、检查、是否、if / whether 等结构。
-    """
-
-    decisions = _get_items(decomposition_spec, "decisions")
-
-    if not decisions:
-        return False
-
-    decision_keywords = [
-        # Chinese
-        "是否",
-        "判断",
-        "检查",
-        "验证",
-        "校验",
-        "能否",
-        "是否需要",
-        "是否可以",
-        "是否成功",
-        "是否通过",
-
-        # English
-        "whether",
-        "check",
-        "validate",
-        "verify",
-        "if",
-        "success",
-        "pass",
-        "fail",
-        "supported",
-        "complete",
-        "valid",
-    ]
-
-    for decision in decisions:
-        question = _normalize_text(_get_attr(decision, "question", ""))
-        description = _normalize_text(_get_attr(decision, "description", ""))
-
-        combined_text = question + description
-
-        if any(keyword in combined_text for keyword in decision_keywords):
-            return True
-
-    return False
-
-
-def _has_branch_signal_in_concepts(concept_spec: Any) -> bool:
-    """
-    根据 Research Agent 的 concepts 辅助判断是否存在分支信号。
-
-    如果 concepts 里出现 decision 类型，说明可能是 branch。
-    这一步不是主判断，只作为兜底增强。
-    """
-
-    concepts = _get_items(concept_spec, "concepts")
-
-    for concept in concepts:
-        concept_type = _normalize_text(_get_attr(concept, "type", ""))
-
-        if concept_type == "decision":
             return True
 
     return False
@@ -277,30 +188,35 @@ def route_flow_type(
     decomposition_spec: Optional[Any] = None,
 ) -> str:
     """
-    根据原始输入、Research Agent 结果和 Decomposition Agent 结果判断流程类型。
+    根据原始输入和 Decomposition flows.condition 判断流程类型。
 
     返回：
-    - "linear"：普通线性流程
-    - "branch"：带判断、条件、成功失败、通过不通过等分支结构的流程
+    - "linear"
+    - "branch"
 
     当前 Router 不处理 topology / unsupported。
     """
 
-    # 1. 优先根据原始输入判断
+    # 1. 原始输入中有明确结构性分支词，才判断为 branch
     if _has_branch_signal_in_user_input(user_input):
         return "branch"
 
-    # 2. 再根据 Decomposition Agent 的 flows.condition 判断
+    # 2. Decomposition flows.condition 中有真实分支结果，才判断为 branch
     if _has_branch_condition_in_decomposition(decomposition_spec):
         return "branch"
 
-    # 3. 再根据 Decomposition Agent 的 decisions 辅助判断
-    #if _has_decision_in_decomposition(decomposition_spec):
-        #return "branch"
+    # 3. 默认 linear
+    return "linear"
 
-    # 4. 最后根据 Research Agent concepts 兜底判断
-   # if _has_branch_signal_in_concepts(concept_spec):
-        #eturn "branch"
+def route_flow_type(
+    user_input: str,
+    concept_spec: Optional[Any] = None,
+    decomposition_spec: Optional[Any] = None,
+) -> str:
+    if _has_branch_signal_in_user_input(user_input):
+        return "branch"
 
-    # 5. 默认线性流程
+    if _has_branch_condition_in_decomposition(decomposition_spec):
+        return "branch"
+
     return "linear"
