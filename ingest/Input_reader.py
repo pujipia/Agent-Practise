@@ -1,4 +1,5 @@
 from ingest.document_loader import load_document
+from typing import Optional
 
 def read_multiline_input() -> str:
     print("请输入流程描述。")
@@ -16,7 +17,7 @@ def read_multiline_input() -> str:
 
     return "\n".join(lines).strip()  # .strip()去掉前后空格; "\n".join(lines)将多行内容重新拼接成完整字符串
 
-def read_user_input() -> str:
+def read_user_input() -> Optional[str]:
     """
     让用户选择输入方式：
     1. 手动输入多行自然语言流程
@@ -42,8 +43,8 @@ def read_user_input() -> str:
         run_builtin_regression_tests()
 
         # 返回空字符串，告诉 main.py：
-        # 这次只是跑测试，不需要继续生成流程图。
-        return ""
+        # 这次只是跑测试，任务到此已经跑完，不需要继续生成流程图。
+        return None
 
     # ------------------------------------------------------------
     # 选项 2：从 .txt / .md 文件读取流程描述

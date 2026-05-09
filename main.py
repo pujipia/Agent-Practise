@@ -235,6 +235,9 @@ def main():
 
     user_input = read_user_input()
 
+    if user_input is None:
+        return
+
     if not user_input:
         print("输入为空，程序结束。")
         return
