@@ -1,4 +1,5 @@
 from ingest.document_loader import load_document
+from typing import Optional
 
 def read_multiline_input() -> str:
     print("请输入流程描述。")
@@ -16,19 +17,38 @@ def read_multiline_input() -> str:
 
     return "\n".join(lines).strip()  # .strip()去掉前后空格; "\n".join(lines)将多行内容重新拼接成完整字符串
 
-def read_user_input() -> str:
+def read_user_input() -> Optional[str]:
     """
     让用户选择输入方式：
     1. 手动输入多行自然语言流程
     2. 从 .txt / .md 文档读取流程描述
+    3. 运行内置回归测试
     """
 
     print("请选择输入方式：")
     print("1. 手动输入流程描述")
     print("2. 从 .txt / .md 文档读取")
-    
-    choice = input("请输入选项 1 或 2：").strip()
+    print("3. 运行内置回归测试")
 
+    choice = input("请输入选项 1、2 或 3：").strip()
+
+    # ------------------------------------------------------------
+    # 选项 3：运行内置回归测试
+    # ------------------------------------------------------------
+    if choice == "3":
+        # 放在函数内部 import，可以避免不必要的启动加载，
+        # 也能降低循环 import 的风险。
+        from tests.regression_runner import run_builtin_regression_tests
+
+        run_builtin_regression_tests()
+
+        # 返回空字符串，告诉 main.py：
+        # 这次只是跑测试，任务到此已经跑完，不需要继续生成流程图。
+        return None
+
+    # ------------------------------------------------------------
+    # 选项 2：从 .txt / .md 文件读取流程描述
+    # ------------------------------------------------------------
     if choice == "2":
         file_path = input("请输入文档路径：").strip().strip('"').strip("'")
         user_input = load_document(file_path)
@@ -46,4 +66,14 @@ def read_user_input() -> str:
 
         return user_input
 
-    return read_multiline_input() 
+    # ------------------------------------------------------------
+    # 选项 1：手动输入流程描述
+    # ------------------------------------------------------------
+    if choice == "1":
+        return read_multiline_input()
+
+    # ------------------------------------------------------------
+    # 其他输入：提示错误，并返回空字符串
+    # ------------------------------------------------------------
+    print("无效选项，已取消。")
+    return ""
