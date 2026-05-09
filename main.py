@@ -5,6 +5,7 @@ from utils.console_logger import (
     print_saved_result,
     print_stage,
 )
+from tests.regression_runner import run_builtin_regression_tests
 
 from routers.flow_router import route_flow_type
 from branch_flow_extractor import (
