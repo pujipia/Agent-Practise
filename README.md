@@ -578,7 +578,6 @@ Recommended future improvements:
 
 ## 16. Project Status
 
-Current status:
 
 ```text
 Core pipeline: working
@@ -610,3 +609,12 @@ Improve repair and validation reliability
 Avoid Prompt over-expansion
 Expand test coverage gradually
 ```
+## CLI User Experience
+
+The current CLI supports:
+- Manual workflow input
+- `.txt` / `.md` file input
+- Built-in regression testing
+- Return-to-menu behavior
+- Friendly file path and file type validation
+- Final output summary after generation

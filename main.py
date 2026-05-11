@@ -17,11 +17,13 @@ from agents.research_agent import extract_concepts
 from agents.decomposition_agent import extract_decomposition
 from utils.result_saver import save_research_result, save_decomposition_result
 from utils.agent_pipeline_repairs import repair_agent_pipeline_edges
+from utils.output_summary import build_output_summary, print_final_output_summary
 
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
 from processors.linear_rule_extractor import extract_linear_flow_by_rule
 from processors.flow_segmenter import split_flow_segments
+
 
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
@@ -238,27 +240,82 @@ def main():
     if user_input is None:
         return
 
+    user_input = user_input.strip()
+
     if not user_input:
         print("输入为空，程序结束。")
         return
 
-    segment_list = split_flow_segments(user_input)
+    segment_result = split_flow_segments(user_input.strip())
+    segments = segment_result.flows
 
-    print_flow_summary(segment_list)
+    print(f"\n检测到 {len(segments)} 个流程：")
+    for segment in segments:
+        print(f"- {segment.id}：{segment.title}")
 
-    for index, segment in enumerate(segment_list.flows, start=1):
-        print_flow_start(
-            flow_id=segment.id,
-            flow_title=segment.title,
-            current_index=index,
-            total_count=len(segment_list.flows),
-        )
+    summaries = []
+
+    for index, segment in enumerate(segments, start=1):
+        print("\n" + "=" * 70)
+        print(f"[{index}/{len(segments)}] 开始处理：{segment.id} - {segment.title}")
+        print("=" * 70)
 
         process_single_flow(
             user_input=segment.content,
             output_prefix=segment.id,
         )
 
+        summaries.append(
+            build_output_summary(
+                output_prefix=segment.id,
+                flow_title=getattr(segment, "title", "默认流程"),
+            )
+        )
+
+    print_final_output_summary(summaries)
+
+
+def confirm_exit_after_interrupt() -> bool:
+    """
+    当用户按 Ctrl + C 时，询问是否确认退出。
+
+    返回：
+    - True: 确认退出
+    - False: 取消退出，返回主菜单
+    """
+
+    print("\n检测到 Ctrl + C 中断。")
+
+    while True:
+        try:
+            answer = input("是否确认退出程序？[y/n]: ").strip().lower()
+
+        except KeyboardInterrupt:
+            # 用户在确认阶段再次 Ctrl+C，直接退出
+            print("\n再次收到中断，已安全退出。")
+            return True
+
+        if answer in ("y", "yes"):
+            return True
+
+        if answer in ("n", "no"):
+            return False
+
+        print("请输入 y 或 n。")
+
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+            break
+
+        except KeyboardInterrupt:
+            should_exit = confirm_exit_after_interrupt()
+
+            if should_exit:
+                print("\n已退出 File Agent Flowchart Generator。")
+                break
+
+            print("\n已取消退出，返回主菜单。")
+            continue
