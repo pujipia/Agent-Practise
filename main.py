@@ -260,5 +260,47 @@ def main():
         )
 
 
+def confirm_exit_after_interrupt() -> bool:
+    """
+    当用户按 Ctrl + C 时，询问是否确认退出。
+
+    返回：
+    - True: 确认退出
+    - False: 取消退出，返回主菜单
+    """
+
+    print("\n检测到 Ctrl + C 中断。")
+
+    while True:
+        try:
+            answer = input("是否确认退出程序？[y/n]: ").strip().lower()
+
+        except KeyboardInterrupt:
+            # 用户在确认阶段再次 Ctrl+C，直接退出
+            print("\n再次收到中断，已安全退出。")
+            return True
+
+        if answer in ("y", "yes"):
+            return True
+
+        if answer in ("n", "no"):
+            return False
+
+        print("请输入 y 或 n。")
+
+
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+            break
+
+        except KeyboardInterrupt:
+            should_exit = confirm_exit_after_interrupt()
+
+            if should_exit:
+                print("\n已退出 File Agent Flowchart Generator。")
+                break
+
+            print("\n已取消退出，返回主菜单。")
+            continue

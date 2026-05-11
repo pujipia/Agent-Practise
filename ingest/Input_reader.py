@@ -3,20 +3,51 @@ from typing import Optional
 from pathlib import Path
 
 def read_multiline_input() -> str:
-    print("请输入流程描述。")
-    print("可以输入多行内容，输入完成后，单独输入 END 结束：")
+    """
+    手动输入多行流程描述。
+
+    支持：
+    1. 多行输入
+    2. 单独输入 END 结束
+    3. 第一行输入 0 返回主菜单
+    4. 直接输入 END / 空内容时返回空字符串
+    5. Ctrl + C 时友好退出
+    """
+
+    print("\n请输入流程描述。")
+    print("支持多行输入，输入完成后请单独输入 END 结束。")
+    print("输入 0 可以返回主菜单。")
+    print("\n示例：")
+    print("用户上传文件。")
+    print("系统检查文件格式是否支持。")
+    print("如果支持，则调用文件解析模块。")
+    print("如果不支持，则提示用户重新上传。")
+    print("END")
+    print("\n请输入：")
 
     lines = [] #存储用户输入
 
-    while True:
-        line = input() #一直遍历输入，直到主动BREAK
+    try:
+        while True:
+            line = input()
 
-        if line.strip() == "END":
-            break
+            # 第一行输入 0：返回主菜单
+            if not lines and line.strip() == "0":
+                print("\n已取消手动输入，返回主菜单。")
+                return ""
 
-        lines.append(line) #如果输入不是END，就保存在lines中
+            # 单独输入 END：结束输入
+            if line.strip().upper() == "END":
+                break
 
-    return "\n".join(lines).strip()  # .strip()去掉前后空格; "\n".join(lines)将多行内容重新拼接成完整字符串
+            lines.append(line)
+
+    except KeyboardInterrupt:
+        raise
+
+    user_input = "\n".join(lines).strip()
+
+    return user_input
 
 def ask_yes_no(prompt: str) -> bool:
     """
@@ -64,7 +95,10 @@ def read_user_input() -> Optional[str]:
         print("[3] 运行内置回归测试")
         print("[0] 退出程序")
 
-        choice = input("\n请输入选项 0 / 1 / 2 / 3：").strip()
+        try:
+            choice = input("\n请输入选项 0 / 1 / 2 / 3：").strip()
+        except KeyboardInterrupt:
+            raise
 
         # ------------------------------------------------------------
         # 选项 0：退出程序
@@ -78,7 +112,20 @@ def read_user_input() -> Optional[str]:
         # ------------------------------------------------------------
         if choice == "1":
             print("\n已选择：手动输入流程描述。")
-            return read_multiline_input()
+
+            user_input = read_multiline_input()
+
+            # Ctrl + C 中断：直接结束程序
+            if user_input is None:
+                return None
+
+            # 输入 0 / 直接 END / 空内容：返回主菜单
+            if user_input.strip() == "":
+                print("\n未输入有效流程描述，返回主菜单。")
+                continue
+
+            print("\n已接收手动输入，准备生成流程图...")
+            return user_input
 
         # ------------------------------------------------------------
         # 选项 2：从 .txt / .md 文件读取流程描述
@@ -187,7 +234,7 @@ def read_user_input() -> Optional[str]:
                 run_builtin_regression_tests()
 
             except KeyboardInterrupt:
-                print("\n内置回归测试已被用户中断。")
+                raise
 
             return None
 
