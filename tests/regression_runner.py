@@ -1,4 +1,6 @@
 #真正跑 Agent pipeline，并打印 PASS / FAIL
+import time
+from utils.regression_report import save_regression_report
 from agents.research_agent import extract_concepts
 from agents.decomposition_agent import extract_decomposition
 from routers.flow_router import route_flow_type
@@ -77,6 +79,7 @@ def run_builtin_regression_tests() -> bool:
     total = len(BUILTIN_TEST_CASES)
     passed = 0
     failed = 0
+    results = []
 
     print("\n" + "=" * 70)
     print("开始运行内置回归测试")
@@ -86,49 +89,76 @@ def run_builtin_regression_tests() -> bool:
         print(f"\n[{index}/{total}] {case.name}")
         print("-" * 70)
 
+        start_time = time.time()
+        case_passed = False
+        warning_count = 0
+        message = ""
+
         try:
             flow_type, diagram, errors, warnings = _build_diagram_for_case(case)
 
             # 1. 检查 Router 判断结果
             if flow_type != case.expected_flow_type:
                 failed += 1
+                message = (
+                    f"Router 判断结果错误。"
+                    f"预期: {case.expected_flow_type}; 实际: {flow_type}"
+                )
                 print("FAIL: Router 判断结果错误")
                 print(f"  预期: {case.expected_flow_type}")
                 print(f"  实际: {flow_type}")
-                continue
 
             # 2. Branch validator 严重错误直接判 FAIL
-            if errors:
+            elif errors:
                 failed += 1
+                message = "Branch validator 检测到严重结构错误: " + "; ".join(errors)
                 print("FAIL: Branch validator 检测到严重结构错误")
                 for error in errors:
                     print(f"  - {error}")
-                continue
 
-            # 3. 检查关键节点、边标签、关键边
-            ok, assertion_errors = run_case_assertions(diagram, case)
-
-            if not ok:
-                failed += 1
-                print("FAIL: 断言检查失败")
-                for error in assertion_errors:
-                    print(f"  - {error}")
-                continue
-
-            # 4. warning 不直接判失败，只提示
-            if warnings:
-                print("PASS_WITH_WARNING")
-                for warning in warnings:
-                    print(f"  - warning: {warning}")
             else:
-                print("PASS")
+                # 3. 检查关键节点、边标签、关键边
+                ok, assertion_errors = run_case_assertions(diagram, case)
 
-            passed += 1
+                if not ok:
+                    failed += 1
+                    message = "断言检查失败: " + "; ".join(assertion_errors)
+                    print("FAIL: 断言检查失败")
+                    for error in assertion_errors:
+                        print(f"  - {error}")
+
+                else:
+                    # 4. warning 不直接判失败，只提示
+                    case_passed = True
+                    passed += 1
+
+                    if warnings:
+                        warning_count = len(warnings)
+                        message = "PASS_WITH_WARNING: " + "; ".join(warnings)
+                        print("PASS_WITH_WARNING")
+                        for warning in warnings:
+                            print(f"  - warning: {warning}")
+                    else:
+                        message = "PASS"
+                        print("PASS")
 
         except Exception as e:
             failed += 1
+            message = f"{type(e).__name__}: {e}"
             print("ERROR: 测试运行过程中发生异常")
             print(f"  {type(e).__name__}: {e}")
+
+        duration = time.time() - start_time
+
+        results.append(
+            {
+                "name": case.name,
+                "passed": case_passed,
+                "warnings": warning_count,
+                "duration": duration,
+                "message": message,
+            }
+        )
 
     print("\n" + "=" * 70)
     print("内置回归测试完成")
@@ -136,8 +166,17 @@ def run_builtin_regression_tests() -> bool:
     print(f"失败: {failed}/{total}")
     print("=" * 70)
 
-    return failed == 0
+    report_path = save_regression_report(results)
 
+    print("\n" + "=" * 60)
+    print("Regression Summary")
+    print("=" * 60)
+    print(f"Passed: {passed}/{total}")
+    print(f"Failed: {failed}/{total}")
+    print(f"Report saved to: {report_path}")
+
+    return failed == 0
 
 if __name__ == "__main__":
     run_builtin_regression_tests()
+
