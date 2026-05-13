@@ -1,5 +1,5 @@
 #检查输出是否符合标准答案
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Union
 
 def normalize_text(text: Any) -> str:
     """
@@ -24,6 +24,42 @@ def normalize_text(text: Any) -> str:
         .replace("?", "")
     )
 
+def match_text_rule(actual_text: Any, rule: Any) -> bool:
+    """
+    通用文本匹配规则。
+
+    支持两种检查方式：
+
+    1. 字符串包含匹配：
+       rule = "生成 Mermaid 代码"
+
+       只要 actual_text 中包含这段文本，就认为匹配。
+
+    2. 关键词集合匹配：
+       rule = ["Mermaid", "渲染"]
+
+       只要 actual_text 同时包含 Mermaid 和 渲染，就认为匹配。
+
+    这样可以允许 LLM 输出：
+    - Mermaid 是否可以渲染？
+    - 判断 Mermaid 是否可以渲染
+    - Mermaid 代码是否可以渲染
+    都被认为是同一个关键节点。
+    """
+
+    normalized_actual = normalize_text(actual_text)
+
+    # 情况 1：关键词列表匹配
+    if isinstance(rule, list):
+        return all(
+            normalize_text(keyword) in normalized_actual
+            for keyword in rule
+        )
+
+    # 情况 2：普通字符串包含匹配
+    normalized_rule = normalize_text(rule)
+
+    return normalized_rule in normalized_actual
 
 def get_nodes(diagram: Any) -> List[Any]:
     """
@@ -103,36 +139,34 @@ def get_edge_labels(diagram: Any) -> List[str]:
 
 def check_required_node_texts(
     diagram: Any,
-    required_texts: List[str],
-) -> Tuple[bool, List[str]]:
+    required_texts: List[Any],
+) -> Tuple[bool, List[Any]]:
     """
     检查 diagram 中是否包含所有必须出现的节点文本。
 
-    注意：
-    这里使用“包含匹配”，不是完全相等匹配。
+    支持两种 required_texts 写法：
 
-    例如：
-    required_text = "文件格式是否支持"
-    actual_text = "系统检查文件格式是否支持？"
+    1. 普通字符串：
+       "生成 Mermaid 代码"
 
-    这种情况会被认为是通过。
+    2. 关键词列表：
+       ["Mermaid", "渲染"]
+
+    第二种写法表示：
+    只要某个节点 text 同时包含这些关键词，就认为通过。
     """
 
     actual_texts = get_node_texts(diagram)
-    normalized_actual_texts = [normalize_text(text) for text in actual_texts]
-
     missing = []
 
-    for required_text in required_texts:
-        normalized_required = normalize_text(required_text)
-
+    for required_rule in required_texts:
         found = any(
-            normalized_required in actual_text
-            for actual_text in normalized_actual_texts
+            match_text_rule(actual_text, required_rule)
+            for actual_text in actual_texts
         )
 
         if not found:
-            missing.append(required_text)
+            missing.append(required_rule)
 
     return len(missing) == 0, missing
 
@@ -174,26 +208,32 @@ def check_required_edge_labels(
 
 def _find_node_ids_by_text(
     diagram: Any,
-    expected_text: str,
+    expected_rule: Any,
 ) -> List[str]:
     """
     根据节点文本查找可能匹配的 node id。
 
-    使用包含匹配。
-    例如 expected_text = "生成 Mermaid 代码"
-    可以匹配 actual_text = "系统生成 Mermaid 代码"。
+    支持两种 expected_rule：
+
+    1. 普通字符串：
+       "生成 Mermaid 代码"
+
+    2. 关键词列表：
+       ["Mermaid", "渲染"]
+
+    这样可以匹配：
+    actual_text = "Mermaid 是否可以渲染？"
+    expected_rule = ["Mermaid", "渲染"]
     """
 
     nodes = get_nodes(diagram)
-    normalized_expected = normalize_text(expected_text)
-
     matched_ids = []
 
     for node in nodes:
         node_id = get_field(node, "id", "")
         node_text = get_field(node, "text", "")
 
-        if normalized_expected in normalize_text(node_text):
+        if match_text_rule(node_text, expected_rule):
             matched_ids.append(node_id)
 
     return matched_ids
@@ -201,32 +241,32 @@ def _find_node_ids_by_text(
 
 def check_required_edges(
     diagram: Any,
-    required_edges: List[Tuple[str, str]],
-) -> Tuple[bool, List[Tuple[str, str]]]:
+    required_edges: List[Tuple[Any, Any]],
+) -> Tuple[bool, List[Tuple[Any, Any]]]:
     """
     检查 diagram 中是否包含必须存在的边。
 
-    required_edges 的格式：
-    [
-        ("调用 linear rule extractor", "生成 Mermaid 代码"),
-        ("生成 Mermaid 代码", "Mermaid 代码是否可以渲染"),
-    ]
+    required_edges 支持两种写法：
 
-    检查逻辑：
-    1. 先根据 source 文本找到 source node id
-    2. 再根据 target 文本找到 target node id
-    3. 检查 edges 里是否存在 source_id -> target_id
+    1. 原来的字符串写法：
+       ("调用 linear rule extractor", "生成 Mermaid 代码")
+
+    2. 新的关键词写法：
+       (["生成", "Mermaid"], ["Mermaid", "渲染"])
+
+    第二种写法表示：
+    source 节点 text 同时包含 ["生成", "Mermaid"]
+    target 节点 text 同时包含 ["Mermaid", "渲染"]
     """
-
     edges = get_edges(diagram)
     missing = []
 
-    for source_text, target_text in required_edges:
-        source_ids = _find_node_ids_by_text(diagram, source_text)
-        target_ids = _find_node_ids_by_text(diagram, target_text)
+    for source_rule, target_rule in required_edges:
+        source_ids = _find_node_ids_by_text(diagram, source_rule)
+        target_ids = _find_node_ids_by_text(diagram, target_rule)
 
         if not source_ids or not target_ids:
-            missing.append((source_text, target_text))
+            missing.append((source_rule, target_rule))
             continue
 
         found = False
@@ -240,7 +280,7 @@ def check_required_edges(
                 break
 
         if not found:
-            missing.append((source_text, target_text))
+            missing.append((source_rule, target_rule))
 
     return len(missing) == 0, missing
 
