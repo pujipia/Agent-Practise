@@ -39,7 +39,13 @@ def _infer_flow_type_from_outputs(output_prefix: str) -> str:
     return "unknown"
 
 
-def build_output_summary(output_prefix: str, flow_title: str = "") -> dict:
+def build_output_summary(
+    output_prefix: str,
+    flow_title: str = "",
+    flow_type: str | None = None,
+    status: str = "成功",
+    message: str = "",
+) -> dict:
     """
     根据 output_prefix 自动生成单个流程片段的输出摘要。
     """
@@ -47,7 +53,8 @@ def build_output_summary(output_prefix: str, flow_title: str = "") -> dict:
     diagram_dir = Path("diagrams")
     artifact_dir = Path("artifacts")
 
-    flow_type = _infer_flow_type_from_outputs(output_prefix)
+    if flow_type is None:
+        flow_type = _infer_flow_type_from_outputs(output_prefix)
 
     mermaid_file = _find_existing_file(
         [
@@ -85,7 +92,8 @@ def build_output_summary(output_prefix: str, flow_title: str = "") -> dict:
         "svg_file": svg_file,
         "research_json": research_json,
         "decomposition_json": decomposition_json,
-        "status": "成功",
+        "status": status,
+        "message": message,
     }
 
 
@@ -113,5 +121,7 @@ def print_final_output_summary(summaries: list) -> None:
         print(f"Research JSON：{summary['research_json']}")
         print(f"Decomposition JSON：{summary['decomposition_json']}")
         print(f"状态：{summary['status']}")
+        if summary.get("message"):
+            print(f"说明：{summary.get('message')}")
 
     print("\n" + "=" * 70)

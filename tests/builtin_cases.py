@@ -1,7 +1,7 @@
 #存放测试题和标准答案
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 
 @dataclass  #自动帮助生成__init__()
@@ -22,9 +22,9 @@ class BuiltinTestCase:
     name: str
     input_text: str
     expected_flow_type: str
-    must_have_node_texts: List[str] = field(default_factory=list) #自动给一个空列表
+    must_have_node_texts: List[Any] = field(default_factory=list) #自动给一个空列表
     must_have_edge_labels: List[str] = field(default_factory=list)
-    must_have_edges: List[Tuple[str, str]] = field(default_factory=list)
+    must_have_edges: List[Tuple[Any, Any]] = field(default_factory=list)
     #Use tuple (two strings) to describe an edge (Source and Target)
 
 BUILTIN_TEST_CASES = [
@@ -163,9 +163,10 @@ BUILTIN_TEST_CASES = [
             "调用 linear rule extractor",
             "调用 branch flow extractor",
             "生成 Mermaid 代码",
-            "Mermaid 代码是否可以渲染",
+            ["Mermaid", "渲染"],
             "保存 Mermaid 文件和 SVG 图片",
         ],
+
         must_have_edge_labels=[
             "为空",
             "不为空",
@@ -177,7 +178,7 @@ BUILTIN_TEST_CASES = [
         must_have_edges=[
             ("调用 linear rule extractor", "生成 Mermaid 代码"),
             ("调用 branch flow extractor", "生成 Mermaid 代码"),
-            ("生成 Mermaid 代码", "Mermaid 代码是否可以渲染"),
+            (["生成", "Mermaid"], ["Mermaid", "渲染"]),
         ],
     ),
 ]

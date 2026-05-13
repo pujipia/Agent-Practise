@@ -1,65 +1,50 @@
 {
   "modules": [
     {
-      "name": "STM32 主控制器",
-      "responsibility": "读取传感器数据和接收蓝牙控制信息"
+      "name": "文件上传模块",
+      "responsibility": "接收用户上传的文件，并处理上传后的步骤。"
     },
     {
-      "name": "I2C 通信协议",
-      "responsibility": "负责 STM32 与 MPU6050 之间的数据传输"
+      "name": "文件格式检查模块",
+      "responsibility": "检查上传文件的格式是否支持。"
     },
     {
-      "name": "MPU6050 六轴惯性传感器",
-      "responsibility": "提供加速度和角速度数据"
+      "name": "文件大小检查模块",
+      "responsibility": "检查上传文件的大小是否超过限制。"
     },
     {
-      "name": "USART 通信协议",
-      "responsibility": "负责 STM32 与 HC05 蓝牙模块之间的数据传输"
-    },
-    {
-      "name": "HC05 蓝牙模块",
-      "responsibility": "无线通信模块，用于接收外部设备发送的控制信息"
+      "name": "文件解析模块",
+      "responsibility": "解析上传文件的内容。"
     }
   ],
   "decisions": [
     {
-      "question": "数据是否有效",
+      "question": "文件格式是否支持？",
       "options": [],
-      "description": "判断接收到的数据是否有效，例如数据是否在合理范围内"
+      "description": "判断上传文件的格式是否被系统支持。"
+    },
+    {
+      "question": "文件大小是否超过限制？",
+      "options": [],
+      "description": "判断上传文件的大小是否超过系统设定的限制。"
     }
   ],
   "flows": [
     {
-      "source": "STM32 主控制器",
-      "target": "I2C 通信协议",
-      "condition": "需要读取 MPU6050 数据时"
+      "source": "文件上传模块",
+      "target": "文件格式检查模块",
+      "condition": "无条件"
     },
     {
-      "source": "STM32 主控制器",
-      "target": "USART 通信协议",
-      "condition": "需要接收蓝牙控制信息时"
+      "source": "文件格式检查模块",
+      "target": "文件大小检查模块",
+      "condition": "文件格式支持"
     },
     {
-      "source": "I2C 通信协议",
-      "target": "MPU6050 六轴惯性传感器",
-      "condition": "I2C 通信请求"
-    },
-    {
-      "source": "USART 通信协议",
-      "target": "HC05 蓝牙模块",
-      "condition": "USART 通信请求"
+      "source": "文件大小检查模块",
+      "target": "文件解析模块",
+      "condition": "文件大小未超过限制"
     }
   ],
-  "dependencies": [
-    {
-      "name": "I2C 协议实现",
-      "type": "unknown",
-      "description": "STM32 内部实现 I2C 通信，用于与 MPU6050 交互"
-    },
-    {
-      "name": "USART 协议实现",
-      "type": "unknown",
-      "description": "STM32 内部实现 USART 通信，用于与 HC05 蓝牙模块交互"
-    }
-  ]
+  "dependencies": []
 }

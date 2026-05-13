@@ -107,7 +107,30 @@ def repair_loop_edges(spec):
 
                 if target_id != node.id and not has_edge(spec, node.id, target_id):
                     spec.edges.append(make_edge_like_existing(spec, node.id, target_id, label="返回"))
+    # ------------------------------------------------------------
+    # 补充已有回边的 label
+    # 作用：
+    # 1. 如果模型已经生成了回边，但没有给 label
+    # 2. 则自动补充 label="返回"
+    # 3. 避免 regression 中缺少“返回”标签
+    # ------------------------------------------------------------
 
+    node_index = {
+        node.id: index
+        for index, node in enumerate(spec.nodes)
+    }
+
+    for edge in spec.edges:
+        source_index = node_index.get(edge.source)
+        target_index = node_index.get(edge.target)
+
+        if source_index is None or target_index is None:
+            continue
+
+        label = (getattr(edge, "label", "") or "").strip()
+
+        if target_index < source_index and not label:
+            edge.label = "返回"
     return spec
 def remove_invalid_end_back_edges(branch_diagram):
     """

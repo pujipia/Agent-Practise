@@ -105,7 +105,6 @@ def read_user_input() -> Optional[str]:
         # 选项 0：退出程序
         # ------------------------------------------------------------
         if choice == "0":
-            print("\n已退出 File Agent Flowchart Generator。")
             return None
 
         # ------------------------------------------------------------

@@ -34,7 +34,7 @@ from utils.loop_repairs import repair_loop_edges
 
 from validators.branch_validator import validate_branch_flow, print_validation_result
 
-def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None: #aviod D-Agent mistakely use a unexisted variable
+def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict: #aviod D-Agent mistakely use a unexisted variable
     """
     处理单个流程片段。
 
@@ -51,6 +51,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
     """
     concept_spec = None
     decomposition_spec = None
+    flow_type = "unknown"
     print_stage(1, "Research Agent：概念抽取")
 
     try:
@@ -147,8 +148,22 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
     print(flow_type)
 
     print_stage(4, "Flowchart Output：流程图生成")
+
     if flow_type == "branch":
-        branch_diagram = extract_branch_flow(user_input)
+        try:
+            branch_diagram = extract_branch_flow(user_input)
+
+        except Exception as e:
+            print("\nBranch Flow 抽取失败。")
+            print(f"错误类型：{type(e).__name__}")
+            print(f"错误信息：{e}")
+            print("本次流程生成已取消，返回主菜单。")
+            return {
+                "success": False,
+                "flow_type": flow_type,
+                "message": f"Branch Flow 抽取失败: {type(e).__name__}: {e}",
+            }
+
         branch_diagram = repair_agent_pipeline_edges(branch_diagram)
 
         branch_diagram = repair_loop_edges(branch_diagram)
@@ -159,20 +174,44 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
         if errors:
             print("\n第一次 branch 抽取存在结构错误，准备 retry 一次。")
 
-            branch_diagram = extract_branch_flow_with_retry(
-                user_input=user_input,
-                errors=errors,
-                previous_diagram=branch_diagram,
-            )
-            branch_diagram = repair_agent_pipeline_edges(branch_diagram)
-            branch_diagram = repair_loop_edges(branch_diagram)
+            try:
+                branch_diagram = extract_branch_flow_with_retry(
+                    user_input=user_input,
+                    errors=errors,
+                    previous_diagram=branch_diagram,
+                )
 
-            errors, warnings = validate_branch_flow(branch_diagram, user_input)
-            print_validation_result(errors, warnings)
+                branch_diagram = repair_agent_pipeline_edges(branch_diagram)
+                branch_diagram = repair_loop_edges(branch_diagram)
+
+                errors, warnings = validate_branch_flow(branch_diagram, user_input)
+                print_validation_result(errors, warnings)
+
+            except Exception as retry_error:
+                print("\nBranch Flow retry 失败。")
+                print(f"错误类型：{type(retry_error).__name__}")
+                print(f"错误信息：{retry_error}")
+                print("本次流程生成已取消，返回主菜单。")
+
+                return {
+                    "success": False,
+                    "flow_type": flow_type,
+                    "message": (
+                        f"Branch Flow retry 异常: "
+                        f"{type(retry_error).__name__}: {retry_error}"
+                    ),
+                }
 
         if errors:
             print("\nretry 后仍检测到严重结构错误，建议先修复后再生成 Mermaid。")
-            return
+
+            error_text = "；".join(errors)
+
+            return {
+                "success": False,
+                "flow_type": flow_type,
+                "message": f"Branch Flow retry 后仍存在结构错误: {error_text}",
+            }
 
         branch_result = BranchFlowExtractor(branch_diagram)
         mermaid_code = branch_result.to_mermaid()
@@ -190,6 +229,11 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
 
         image_path = diagram_dir / f"{output_prefix}_branch.svg"
         render_mermaid_to_image(output_path, image_path)
+        return {
+            "success": True,
+            "flow_type": flow_type,
+            "message": "流程图生成成功。",
+        }
 
     elif flow_type == "linear":
         # 1. 不调用 LLM，直接用规则提取 linear steps
@@ -221,10 +265,21 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> None
 
         image_path = diagram_dir / f"{output_prefix}_linear.svg"
         render_mermaid_to_image(output_path, image_path)
+        return {
+            "success": True,
+            "flow_type": flow_type,
+            "message": "流程图生成成功。",
+        }
 
     else:
         print("\n暂不支持的流程类型：")
         print(flow_type)
+
+        return {
+        "success": False,
+        "flow_type": flow_type,
+        "message": f"暂不支持的流程类型: {flow_type}",
+        }
 
 def select_logging_mode() -> None:
     """
@@ -290,6 +345,25 @@ def confirm_input_scope(user_input: str) -> bool:
 
         print("请输入 y 或 n。")
 
+def cleanup_previous_outputs(output_prefix: str) -> None:
+    """
+    Delete old generated diagram files for the same output prefix.
+
+    This prevents final summary from showing stale Mermaid/SVG files
+    after the current generation fails.
+    """
+
+    candidates = [
+        Path("diagrams") / f"{output_prefix}_branch.mmd",
+        Path("diagrams") / f"{output_prefix}_branch.svg",
+        Path("diagrams") / f"{output_prefix}_linear.mmd",
+        Path("diagrams") / f"{output_prefix}_linear.svg",
+    ]
+
+    for path in candidates:
+        if path.exists():
+            path.unlink()
+
 def main() -> bool:
     """
     主入口函数。
@@ -333,15 +407,28 @@ def main() -> bool:
         if not confirm_input_scope(segment.content):
             return False
 
-        process_single_flow(
+        cleanup_previous_outputs(segment.id)
+
+        process_result = process_single_flow(
             user_input=segment.content,
             output_prefix=segment.id,
         )
+        
+        if process_result is None:
+            process_result = {
+                "success": False,
+                "flow_type": "unknown",
+                "message": "流程处理函数没有返回结果。",
+            }
+        status_text = "成功" if process_result.get("success") else "失败"
 
         summaries.append(
             build_output_summary(
                 output_prefix=segment.id,
                 flow_title=getattr(segment, "title", "默认流程"),
+                flow_type=process_result.get("flow_type", "unknown"),
+                status=status_text,
+                message=process_result.get("message", ""),
             )
         )
 

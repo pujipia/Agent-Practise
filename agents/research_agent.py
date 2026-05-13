@@ -40,6 +40,7 @@ def extract_concepts(user_input: str) -> ConceptListSpec:
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
+        "think": False,
         "format": ConceptListSpec.model_json_schema(),
         "options": {
             "temperature": 0

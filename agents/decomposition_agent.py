@@ -67,6 +67,7 @@ def extract_decomposition(
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
+        "think": False,
         "format": DecompositionSpec.model_json_schema(),
         "options": {
             "temperature": 0 #to be stable instead of random
