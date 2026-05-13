@@ -154,6 +154,7 @@ def _call_ollama(prompt: str, timeout: int = 240) -> str:
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
+        "think": False,
         "format": BranchFlowSpec.model_json_schema(),
         "options": {
             "temperature": 0

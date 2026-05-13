@@ -174,36 +174,43 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
         if errors:
             print("\n第一次 branch 抽取存在结构错误，准备 retry 一次。")
 
-        try:
-            branch_diagram = extract_branch_flow_with_retry(
-                user_input=user_input,
-                errors=errors,
-                previous_diagram=branch_diagram,
-            )
-        except Exception as e:
-            print("\nBranch Flow retry 失败。")
-            print(f"错误类型：{type(e).__name__}")
-            print(f"错误信息：{e}")
-            print("本次流程生成已取消，返回主菜单。")
-            
-            return {
-                "success": False,
-                "flow_type": flow_type,
-                "message": f"Branch Flow retry 失败: {type(e).__name__}: {e}",
-            }
+            try:
+                branch_diagram = extract_branch_flow_with_retry(
+                    user_input=user_input,
+                    errors=errors,
+                    previous_diagram=branch_diagram,
+                )
 
-            branch_diagram = repair_agent_pipeline_edges(branch_diagram)
-            branch_diagram = repair_loop_edges(branch_diagram)
+                branch_diagram = repair_agent_pipeline_edges(branch_diagram)
+                branch_diagram = repair_loop_edges(branch_diagram)
 
-            errors, warnings = validate_branch_flow(branch_diagram, user_input)
-            print_validation_result(errors, warnings)
+                errors, warnings = validate_branch_flow(branch_diagram, user_input)
+                print_validation_result(errors, warnings)
+
+            except Exception as retry_error:
+                print("\nBranch Flow retry 失败。")
+                print(f"错误类型：{type(retry_error).__name__}")
+                print(f"错误信息：{retry_error}")
+                print("本次流程生成已取消，返回主菜单。")
+
+                return {
+                    "success": False,
+                    "flow_type": flow_type,
+                    "message": (
+                        f"Branch Flow retry 异常: "
+                        f"{type(retry_error).__name__}: {retry_error}"
+                    ),
+                }
 
         if errors:
             print("\nretry 后仍检测到严重结构错误，建议先修复后再生成 Mermaid。")
+
+            error_text = "；".join(errors)
+
             return {
                 "success": False,
                 "flow_type": flow_type,
-                "message": f"Branch Flow retry 失败: {type(e).__name__}: {e}",
+                "message": f"Branch Flow retry 后仍存在结构错误: {error_text}",
             }
 
         branch_result = BranchFlowExtractor(branch_diagram)

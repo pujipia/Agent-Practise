@@ -638,3 +638,508 @@ Users can:
 - Enter `n` or `0` to return to the main menu
 
 The main menu also supports changing the logging mode with option `[4]`.
+
+## Troubleshooting: Ollama GPU Runtime Issue
+
+### Problem
+
+During development, `python main.py` suddenly became much slower than before.  
+Some simple test cases that previously worked started to timeout or fail.
+
+Typical symptoms:
+
+```text
+Ollama 请求超时，请检查模型是否正在运行或输入是否过长。
+Research Agent 概念抽取失败
+Decomposition Agent 超时
+Branch Flow Extractor 超时
+```
+
+At first, this looked like a possible problem with:
+
+```text
+1. Agent pipeline logic
+2. main.py
+3. timeout settings
+4. context length
+5. prompt length
+```
+
+However, the root cause was that **Ollama had fallen back to CPU execution instead of using the NVIDIA GPU**.
+
+---
+
+### Root Cause
+
+The key command for diagnosis is:
+
+```powershell
+ollama ps
+```
+
+When the issue occurred, the model showed:
+
+```text
+PROCESSOR    100% CPU
+```
+
+This means the model was running entirely on CPU.
+
+A healthy status should be:
+
+```text
+PROCESSOR    100% GPU
+```
+
+or at least:
+
+```text
+PROCESSOR    CPU/GPU
+```
+
+The Ollama server log also showed CPU fallback symptoms:
+
+```text
+inference compute id=cpu library=cpu
+total_vram="0 B"
+model weights device=CPU
+kv cache device=CPU
+runner.vram="0 B"
+```
+
+This confirmed that Ollama did not successfully detect or use the NVIDIA GPU.
+
+---
+
+## Diagnosis Steps
+
+### 1. Check whether Ollama is using GPU
+
+Run:
+
+```powershell
+ollama ps
+```
+
+If the output shows:
+
+```text
+100% CPU
+```
+
+then Ollama is not using GPU.
+
+If the output shows:
+
+```text
+100% GPU
+```
+
+then Ollama is using GPU correctly.
+
+---
+
+### 2. Check NVIDIA GPU status
+
+Run:
+
+```powershell
+nvidia-smi
+```
+
+A healthy output should show the NVIDIA GPU, driver version, and CUDA version.
+
+Example:
+
+```text
+NVIDIA GeForce RTX 3060
+Driver Version: ...
+CUDA Version: ...
+```
+
+If Ollama is using GPU correctly, `nvidia-smi` should also show an `ollama.exe` process under the GPU process list.
+
+Important note:
+
+```text
+nvidia-smi can detect the GPU,
+but this does not always mean Ollama is using the GPU.
+```
+
+Therefore, always check both:
+
+```powershell
+ollama ps
+nvidia-smi
+```
+
+---
+
+### 3. Check Ollama version and installation path
+
+Run:
+
+```powershell
+where.exe ollama
+Get-Command ollama
+ollama --version
+```
+
+The expected path is usually similar to:
+
+```text
+C:\Users\<UserName>\AppData\Local\Programs\Ollama\ollama.exe
+```
+
+---
+
+### 4. Check whether CUDA runtime files exist
+
+Run:
+
+```powershell
+Get-ChildItem "$env:LOCALAPPDATA\Programs\Ollama\lib\ollama"
+```
+
+There should be a CUDA folder such as:
+
+```text
+cuda_v12
+```
+
+Then check its contents:
+
+```powershell
+Get-ChildItem "$env:LOCALAPPDATA\Programs\Ollama\lib\ollama\cuda_v12"
+```
+
+Expected files may include:
+
+```text
+cublas64_12.dll
+cublasLt64_12.dll
+cudart64_12.dll
+```
+
+If the CUDA folder is missing or empty, reinstall Ollama.
+
+---
+
+### 5. Check Ollama server log
+
+Open the server log:
+
+```powershell
+notepad $env:LOCALAPPDATA\Ollama\server.log
+```
+
+Search for:
+
+```text
+gpu
+cuda
+nvidia
+vram
+inference compute
+model weights
+kv cache
+offloaded
+```
+
+Unhealthy signs include:
+
+```text
+inference compute id=cpu library=cpu
+total_vram="0 B"
+model weights device=CPU
+kv cache device=CPU
+runner.vram="0 B"
+```
+
+These indicate that Ollama is running on CPU.
+
+---
+
+## Fix Steps
+
+### 1. Stop all Ollama processes
+
+First stop the running model:
+
+```powershell
+ollama stop deepseek-r1:8b
+```
+
+Then kill all Ollama processes:
+
+```powershell
+taskkill /F /IM ollama.exe /T
+```
+
+Confirm that no Ollama process remains:
+
+```powershell
+Get-Process ollama -ErrorAction SilentlyContinue
+```
+
+This command should return no output.
+
+If the process keeps coming back, exit the Ollama tray app manually:
+
+```text
+Windows system tray → Ollama icon → Quit / Exit
+```
+
+Then run again:
+
+```powershell
+taskkill /F /IM ollama.exe /T
+```
+
+---
+
+### 2. Force start Ollama with CUDA backend for debugging
+
+After all Ollama processes are stopped, start Ollama manually:
+
+```powershell
+$env:OLLAMA_DEBUG="1"
+$env:OLLAMA_LLM_LIBRARY="cuda_v12"
+$env:OLLAMA_MODELS="H:\模型"
+& "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" serve
+```
+
+Keep this PowerShell window open.  
+This window is now the Ollama server.
+
+Then open a second PowerShell window and test the model:
+
+```powershell
+ollama run deepseek-r1:8b --think=false "只输出 OK，不要解释。"
+ollama ps
+nvidia-smi
+```
+
+If GPU works correctly, `ollama ps` should show:
+
+```text
+PROCESSOR    100% GPU
+```
+
+If it still shows:
+
+```text
+PROCESSOR    100% CPU
+```
+
+then Ollama still cannot use the GPU.
+
+---
+
+### 3. Fix port 11434 conflict
+
+If starting Ollama manually gives this error:
+
+```text
+listen tcp 127.0.0.1:11434: bind: Only one usage of each socket address is normally permitted
+```
+
+it means another Ollama server is already running.
+
+Fix it with:
+
+```powershell
+taskkill /F /IM ollama.exe /T
+Get-Process ollama -ErrorAction SilentlyContinue
+```
+
+If the process keeps restarting, quit the Ollama tray app first.
+
+---
+
+### 4. Reinstall Ollama if GPU is still not detected
+
+If CUDA files exist but Ollama still shows `100% CPU`, reinstall Ollama.
+
+Recommended process:
+
+```powershell
+taskkill /F /IM ollama.exe /T
+Get-Process ollama -ErrorAction SilentlyContinue
+```
+
+Then uninstall Ollama from Windows settings.
+
+Optionally remove the old Ollama program folder:
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\Programs\Ollama" -Recurse -Force
+```
+
+Do not delete the model directory if models are stored separately, for example:
+
+```text
+H:\模型
+```
+
+Then reinstall Ollama:
+
+```powershell
+irm https://ollama.com/install.ps1 | iex
+```
+
+After installation, restart PowerShell or restart the computer.
+
+---
+
+## Verification After Reinstallation
+
+Run:
+
+```powershell
+ollama --version
+ollama run deepseek-r1:8b --think=false "只输出 OK，不要解释。"
+ollama ps
+nvidia-smi
+```
+
+Healthy result:
+
+```text
+ollama ps → PROCESSOR 100% GPU
+nvidia-smi → ollama.exe appears in GPU process list
+```
+
+If this is correct, return to the project:
+
+```powershell
+cd H:\file_agent
+python main.py
+```
+
+---
+
+## Project-Specific Notes
+
+Before running the full Agent pipeline, always check:
+
+```powershell
+ollama ps
+```
+
+If the model shows:
+
+```text
+100% CPU
+```
+
+do not run:
+
+```powershell
+python -m tests.regression_runner
+```
+
+Fix Ollama GPU usage first.
+
+If it shows:
+
+```text
+100% GPU
+```
+
+or:
+
+```text
+CPU/GPU
+```
+
+then it is safe to run:
+
+```powershell
+python main.py
+```
+
+or:
+
+```powershell
+python -m tests.regression_runner
+```
+
+---
+
+## Notes About Context Length and Timeout
+
+This issue was not mainly caused by context length or timeout.
+
+Important differences:
+
+```text
+timeout
+= how long Python waits before giving up
+= does not make Ollama faster
+
+context length
+= maximum context window size
+= larger context requires more RAM / VRAM
+
+CPU fallback
+= model runs on CPU instead of GPU
+= the main cause of severe slowdown in this case
+```
+
+Increasing context length from 4K to 8K or 16K does not fix CPU fallback.  
+It may increase memory pressure and make the model slower.
+
+---
+
+## Notes About DeepSeek-R1 Thinking Mode
+
+For DeepSeek-R1 models, disable thinking during strict structured-output tests:
+
+```powershell
+ollama run deepseek-r1:8b --think=false "只输出 OK，不要解释。"
+```
+
+For Python API calls, add `think: False` to the Ollama payload:
+
+```python
+payload = {
+    "model": MODEL_NAME,
+    "prompt": prompt,
+    "stream": False,
+    "think": False,
+    "options": {
+        "temperature": 0,
+    },
+}
+```
+
+This helps reduce unnecessary reasoning output and improves structured-output stability.
+
+---
+
+## Final Conclusion
+
+If `python main.py` suddenly becomes slow or starts timing out, first check whether Ollama is using GPU.
+
+The most important command is:
+
+```powershell
+ollama ps
+```
+
+If it shows:
+
+```text
+PROCESSOR    100% CPU
+```
+
+then fix Ollama GPU runtime before changing Agent code.
+
+In the resolved case, after reinstalling / refreshing Ollama and restoring GPU execution, `ollama ps` showed:
+
+```text
+PROCESSOR    100% GPU
+```
+
+After that, `python main.py` returned to normal speed.
