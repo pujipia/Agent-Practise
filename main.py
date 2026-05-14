@@ -170,6 +170,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
 
         errors, warnings = validate_branch_flow(branch_diagram, user_input)
         print_validation_result(errors, warnings)
+        
 
         if errors:
             print("\n第一次 branch 抽取存在结构错误，准备 retry 一次。")
@@ -179,6 +180,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
                     user_input=user_input,
                     errors=errors,
                     previous_diagram=branch_diagram,
+                    decomposition_spec=decomposition_spec,
                 )
 
                 branch_diagram = repair_agent_pipeline_edges(branch_diagram)

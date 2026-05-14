@@ -134,7 +134,7 @@ def build_branch_prompt(user_input: str) -> str:
 
     # 兼容旧 prompt 文件：如果旧文件没有占位符，就把用户输入追加到最后
     return template + f"\n\n现在处理这个用户输入：\n{user_input}\n"
-
+    
 
 # ============================================================
 # Part 3. Ollama 调用与 JSON 清洗
@@ -350,10 +350,17 @@ JSON 必须包含：
 Decomposition Agent 结构化参考
 ====================
 
-下面的 decomposition flows 是本次修复最重要的参考。
-你必须尽量把每一条 flow 转换成 branch JSON 里的 edge。
-如果 flow.condition 不为空，它应该作为 edge.label。
+【retry 修复优先级】
 
+你正在修复上一版 branch JSON，而不是重新设计一张全新的流程图。
+
+优先级如下：
+1. 必须优先保留 previous_diagram 中已经正确的节点和边，尤其是“返回 / 重新上传 / 重新输入 / retry”类回边。
+2. validator errors 中指出的错误必须修复。
+3. Decomposition Agent 的 flows 只作为补充参考，用于补充缺失的节点、缺失的边和终止路径。
+4. 如果 Decomposition flows 与 previous_diagram 中已有的正确回边冲突，应保留 previous_diagram 的回边。
+5. 不要因为 Decomposition flows 中没有直接写“返回”二字，就删除 previous_diagram 中已有的返回边。
+6. 只有当 previous_diagram 中的边明显违反原始 user_input，才允许删除。
 {decomposition_json}
 
 ====================
@@ -367,6 +374,40 @@ Decomposition Agent 结构化参考
 ====================
 
 {previous_json}
+====================
+返工回边保留规则
+====================
+如果节点文本包含：
+- 重新上传
+- 重新输入
+- 重新选择
+- 压缩文件后重新上传
+- 提示登录失败
+- 提示验证码错误
+- 调用错误记录模块并提示重新上传
+
+则该节点通常不是终止节点，而是返工节点。
+它必须返回到对应的输入/操作节点。
+
+示例：
+提示用户重新上传 -> 用户上传文件
+提示用户压缩文件后重新上传 -> 用户上传文件
+提示用户重新输入账号和密码 -> 用户输入账号和密码
+提示验证码错误 -> 用户输入验证码
+
+    【开始节点限制】
+
+    “开始”只能作为流程入口节点，不能作为成功路径、失败终止路径或异常终止路径的目标节点。
+
+    如果某条边的 source 是：
+    - 输出解析结果
+    - 输出解析结果并保存文件信息
+    - 进入系统首页
+    - 保存文件
+    - 生成报告
+    - 通知完成
+
+    则 target 不得是“开始”，应为“流程结束”。
 
 ====================
 强制修复规则
@@ -505,6 +546,15 @@ class BranchFlowExtractor:
         if not source or not target:
             print(f"[cleanup] skip invalid edge with empty source/target: {source} -> {target}")
             return None
+
+        if label:
+            label = str(label).strip()
+
+            # 清理 LLM 可能已经包上的竖线：
+            # |为空| -> 为空
+            # ||为空|| -> 为空
+            while label.startswith("|") and label.endswith("|") and len(label) >= 2:
+                label = label[1:-1].strip()
 
         if label:
             label = self._escape_text(label)
