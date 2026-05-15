@@ -10,26 +10,57 @@ def has_edge(spec, source_id: str, target_id: str) -> bool:
             return True
     return False
 
-def is_terminal_node(node) -> bool:
+def is_return_node(node) -> bool:
     """
-    判断一个节点是不是流程结束类节点。
-    这些节点没有出边是正常的。
+    判断一个节点是不是迴邊节点。
+    迴邊节点应该返回前面的输入/操作节点，而不是连接到流程结束。
     """
     text = normalize_text(node.text)
 
+    return_keywords = [
+        "重新上传",
+        "重新输入",
+        "重新选择",
+        "重新支付",
+        "压缩文件后重新上传",
+        "提示登录失败",
+        "提示验证码错误",
+        "补全",
+        "修改",
+    ]
+
+    return any(keyword in text for keyword in return_keywords)
+
+def is_terminal_node(node) -> bool:
+    """
+    判断一个节点是不是终止节点。
+    终止节点应该连接到“流程结束”节点。
+    """
+    text = normalize_text(node.text)
+
+    if is_rework_node(node):
+        return False
+
     terminal_keywords = [
-        "结束",
         "流程结束",
-        "完成",
+        "结束",
+        "输出解析结果",
+        "输出解析结果并保存文件信息",
+        "保存文件信息",
+        "进入系统首页",
         "进入主页",
-        "进入首页",
-        "进入系统",
         "登录成功",
-        "提交成功",
-        "支付成功",
-        "生成订单",
-        "订单完成",
-        "审核通过",
+        "锁定账号",
+        "拒绝文件",
+        "取消订单",
+        "冻结订单",
+        "终止申请",
+        "转入人工审核队列",
+        "通知用户订单已发货",
+        "生成报告",
+        "生成审查报告",
+        "生成正常巡检报告",
+        "生成异常告警",
     ]
 
     return any(keyword in text for keyword in terminal_keywords)

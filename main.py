@@ -19,6 +19,7 @@ from utils.result_saver import save_research_result, save_decomposition_result
 from utils.agent_pipeline_repairs import repair_agent_pipeline_edges
 from utils.output_summary import build_output_summary, print_final_output_summary
 from utils.logger import set_debug_mode, log_debug
+from utils.end_repairs import repair_end_edges
 
 from ingest.Input_reader import read_user_input
 from processors.role_normalizer import normalize_roles_by_input
@@ -167,6 +168,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
         branch_diagram = repair_agent_pipeline_edges(branch_diagram)
 
         branch_diagram = repair_loop_edges(branch_diagram)
+        branch_diagram = repair_end_edges(branch_diagram)
 
         errors, warnings = validate_branch_flow(branch_diagram, user_input)
         print_validation_result(errors, warnings)
@@ -185,6 +187,7 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
 
                 branch_diagram = repair_agent_pipeline_edges(branch_diagram)
                 branch_diagram = repair_loop_edges(branch_diagram)
+                branch_diagram = repair_end_edges(branch_diagram)
 
                 errors, warnings = validate_branch_flow(branch_diagram, user_input)
                 print_validation_result(errors, warnings)
