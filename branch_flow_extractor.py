@@ -318,8 +318,8 @@ def build_branch_retry_prompt(
 你是一个分支流程图 JSON 修复器。
 
 你的任务：
-根据用户原始输入、Decomposition Agent 的结构化拆解结果、上一次错误 JSON 和校验错误，
-重新生成完整、合法、可通过校验的 branch JSON。
+根据用户原始输入、Decomposition Agent 的结构化拆解结果、上一次 branch JSON 和校验错误，
+修复上一版 branch JSON，重新生成完整、合法、可通过校验的 branch JSON。
 
 你必须只输出 JSON。
 不要解释。
@@ -340,6 +340,47 @@ JSON 必须包含：
 4. input_output
 5. subroutine
 
+edge.label 只能填写纯文本，例如 "支付成功"。
+禁止在 label 中加入 Mermaid 管道符号，例如 "|支付成功|"。
+【判断结果不得作为节点】
+
+以下内容只能作为 edge.label，不能作为 node.text，也不能作为 decision 节点：
+
+1. 是 / 否 / 有 / 无
+2. 成功 / 失败 / 正确 / 错误
+3. 通过 / 不通过
+4. 有效 / 无效
+5. 完整 / 不完整
+6. 为空 / 不为空
+7. 支持 / 不支持
+8. 存在 / 不存在
+9. 充足 / 不足
+10. 超过 / 未超过
+11. 需要 / 不需要
+12. 使用 / 未使用
+13. 选择 / 不选择
+14. 同意 / 不同意
+15. 批准 / 不批准
+16. 正常 / 异常
+17. 高风险 / 低风险
+
+如果某个文本只是判断结果，它必须放在 edge.label 中。
+
+错误示例：
+{{"id": "9", "text": "未使用优惠券", "kind": "decision"}}
+{{"id": "15", "text": "风控通过", "kind": "decision"}}
+{{"id": "21", "text": "发货成功", "kind": "decision"}}
+
+正确示例：
+{{"text": "用户是否使用优惠券", "kind": "decision"}}
+edge.label = "未使用优惠券"
+
+{{"text": "风控是否通过", "kind": "decision"}}
+edge.label = "风控通过"
+
+{{"text": "发货是否成功", "kind": "decision"}}
+edge.label = "发货成功"
+
 ====================
 用户原始输入
 ====================
@@ -350,18 +391,13 @@ JSON 必须包含：
 Decomposition Agent 结构化参考
 ====================
 
-【retry 修复优先级】
-
-你正在修复上一版 branch JSON，而不是重新设计一张全新的流程图。
-
-优先级如下：
-1. 必须优先保留 previous_diagram 中已经正确的节点和边，尤其是“返回 / 重新上传 / 重新输入 / retry”类回边。
-2. validator errors 中指出的错误必须修复。
-3. Decomposition Agent 的 flows 只作为补充参考，用于补充缺失的节点、缺失的边和终止路径。
-4. 如果 Decomposition flows 与 previous_diagram 中已有的正确回边冲突，应保留 previous_diagram 的回边。
-5. 不要因为 Decomposition flows 中没有直接写“返回”二字，就删除 previous_diagram 中已有的返回边。
-6. 只有当 previous_diagram 中的边明显违反原始 user_input，才允许删除。
 {decomposition_json}
+
+====================
+上一次 branch JSON
+====================
+
+{previous_json}
 
 ====================
 上一次 branch JSON 校验错误
@@ -370,64 +406,57 @@ Decomposition Agent 结构化参考
 {error_text}
 
 ====================
-上一次错误 branch JSON
+retry 修复优先级
 ====================
 
-{previous_json}
-====================
-返工回边保留规则
-====================
-如果节点文本包含：
-- 重新上传
-- 重新输入
-- 重新选择
-- 压缩文件后重新上传
-- 提示登录失败
-- 提示验证码错误
-- 调用错误记录模块并提示重新上传
+你正在修复上一版 branch JSON，而不是重新设计一张全新的流程图。
 
-则该节点通常不是终止节点，而是返工节点。
-它必须返回到对应的输入/操作节点。
+优先级如下：
 
-示例：
-提示用户重新上传 -> 用户上传文件
-提示用户压缩文件后重新上传 -> 用户上传文件
-提示用户重新输入账号和密码 -> 用户输入账号和密码
-提示验证码错误 -> 用户输入验证码
-
-    【开始节点限制】
-
-    “开始”只能作为流程入口节点，不能作为成功路径、失败终止路径或异常终止路径的目标节点。
-
-    如果某条边的 source 是：
-    - 输出解析结果
-    - 输出解析结果并保存文件信息
-    - 进入系统首页
-    - 保存文件
-    - 生成报告
-    - 通知完成
-
-    则 target 不得是“开始”，应为“流程结束”。
+1. validator errors 和 coverage errors 必须优先修复。
+2. 如果 error 中包含“Decomposition decision 未被 Branch 图覆盖”，该 decision 必须出现在本次 nodes 中，且 kind 必须是 "decision"。
+3. 如果 error 中包含“相关 flows”，这些 flows 是本次 retry 的强约束，必须体现在 nodes 和 edges 中。
+4. previous_diagram 中不冲突的节点和边可以保留。
+5. 如果 previous_diagram 中的边跳过了 coverage error 指出的 decision，则必须删除或替换这条跳跃边。
+6. Decomposition flows 中明确 source -> target 的关系优先于模型自由补全。
+7. 不允许用“提示失败 -> 返回”替代 Decomposition flows 中已经明确给出的中间判断节点。
+8. 不允许自行插入“提示成功”“提示失败”等 Decomposition flows 中不存在的节点，除非原始用户输入明确包含。
+9. 如果 Decomposition flows 明确显示某节点应连接到“结束”或普通后续动作，则不能把它改成 return 边。
+10. 不要因为 Decomposition flows 中没有直接写“返回”二字，就随意删除 previous_diagram 中明确正确的 return 边。
 
 ====================
-强制修复规则
+Coverage Error 强制修复规则
 ====================
 
-1. 每个 decision 节点必须至少有两个出口。
-2. 每个“如果 A，则 B；如果非 A，则 C”必须生成两条 edge。
-3. Decomposition Agent 的每一条 flows 都应尽量被保留为 branch edge。
-4. flow.condition 应该作为 edge.label。
-5. 不允许出现 source 或 target 为空字符串的 edge。
-6. 不允许遗漏最后一个 decision 节点的任意分支。
-7. 如果出现“退回修改”“重新输入”“重新上传”“补充材料”，应连接回合理的前置输入或提交节点。
-8. 不要把“通过 / 不通过 / 成功 / 失败 / 完整 / 不完整”单独作为节点，它们应该作为 edge.label。
-9. 如果上一次某个 decision 节点只有一个出口，本次必须补全另一个出口。
-10. 如果 Decomposition flows 中存在：
-    专家判断项目 -> 退回给用户修改 [评审不通过]
-    专家判断项目 -> 生成审批结果 [评审通过]
-    那么 branch JSON 中必须保留这两条分支边。
+如果校验错误中出现：
 
-只输出 JSON。
+Decomposition decision 未被 Branch 图覆盖：X
+
+则说明 Decomposition Agent 已经识别出判断节点 X，但上一版 Branch JSON 的 nodes 中遗漏了该 decision。
+
+本次 retry 必须执行以下修复：
+
+1. 必须在 nodes 中新增或保留一个 decision 节点。
+   该节点 text 必须包含 X 的核心语义。
+   该节点 kind 必须是 "decision"。
+
+2. 必须根据 error 中给出的“相关 flows”补全 X 的入边和出边。
+
+3. 如果相关 flows 中存在：
+   A -> X
+   X -> B [condition: 条件1]
+   X -> C [condition: 条件2]
+
+   则 branch JSON 中必须生成：
+   A 对应节点 -> X 对应节点
+   X 对应节点 -> B 对应节点，edge.label = 条件1
+   X 对应节点 -> C 对应节点，edge.label = 条件2
+
+4. 如果 previous_diagram 中存在 A -> B 或 A -> C 的跳跃边，但相关 flows 显示应为 A -> X -> B/C，则必须插入 X，不允许继续跳过 X。
+
+5. 禁止只生成 X 节点但不连接它的分支。
+
+6. 禁止把“成功 / 失败 / 通过 / 不通过 / 有效 / 无效”单独作为节点，它们应作为 edge.label。
 """
 
 def extract_branch_flow_with_retry(

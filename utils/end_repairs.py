@@ -202,9 +202,40 @@ def repair_end_edges(branch_diagram: Any) -> BranchFlowSpec:
             }
         )
 
+    def _is_return_edge(edge: Dict[str, Any]) -> bool:
+        """
+        判断一条边是否是返回类边。
+        """
+        label = str(edge.get("label", "") or "")
+        target = str(edge.get("target", "") or "")
+
+        return (
+            "返回" in label
+            or "重新" in label
+            or "回到" in label
+            or "退回" in label
+            or "返回" in target
+        )
+
+    end_action_node_id_set = set(end_action_node_ids)
+
+    filtered_edges = []
+
+    for edge in edges:
+        source = str(edge.get("source", ""))
+
+        # 如果结束动作节点还有返回边，删除这条错误边
+        if source in end_action_node_id_set and _is_return_edge(edge):
+            continue
+
+        filtered_edges.append(edge)
+
+    edges = filtered_edges
+    
     for source_id in end_action_node_ids:
         if source_id == end_node_id:
             continue
+
 
         if not _edge_exists(edges, source_id, end_node_id):
             edges.append(

@@ -31,6 +31,91 @@ def is_return_node(node) -> bool:
 
     return any(keyword in text for keyword in return_keywords)
 
+def is_result_label_like_node(node) -> bool:
+    """
+    判断一个 decision 节点是否其实是“判断结果”。
+
+    这些词应该作为 edge.label，
+    不应该作为 decision node。
+
+    例如：
+    错误：node.text = "未使用优惠券", kind = "decision"
+    正确：node.text = "用户是否使用优惠券", kind = "decision"
+         edge.label = "未使用优惠券"
+    """
+
+    text = normalize_text(node.text)
+
+    if not text:
+        return False
+
+    # 如果文本本身有明确判断语义，就不要误判。
+    # 例如：
+    # 库存是否充足
+    # 支付是否成功
+    # 风控是否通过
+    question_signals = [
+        "是否",
+        "能否",
+        "有没有",
+        "是否需要",
+        "判断",
+        "检查",
+        "验证",
+        "校验",
+        "确认",
+    ]
+
+    if any(signal in text for signal in question_signals):
+        return False
+
+    # 更宽泛的“判断结果”词。
+    # 这些词通常应该放在 edge.label，而不是 node.text。
+    result_keywords = [
+        "是",
+        "否",
+        "有",
+        "无",
+        "成功",
+        "失败",
+        "正确",
+        "错误",
+        "通过",
+        "不通过",
+        "有效",
+        "无效",
+        "完整",
+        "不完整",
+        "为空",
+        "不为空",
+        "支持",
+        "不支持",
+        "存在",
+        "不存在",
+        "充足",
+        "不足",
+        "超过",
+        "未超过",
+        "需要",
+        "不需要",
+        "使用",
+        "未使用",
+        "选择",
+        "不选择",
+        "同意",
+        "不同意",
+        "批准",
+        "不批准",
+        "接收",
+        "未接收",
+        "正常",
+        "异常",
+        "高风险",
+        "低风险",
+    ]
+
+    return any(keyword in text for keyword in result_keywords)
+
 def is_terminal_node(node) -> bool:
     """
     判断一个节点是不是终止节点。
@@ -38,7 +123,7 @@ def is_terminal_node(node) -> bool:
     """
     text = normalize_text(node.text)
 
-    if is_rework_node(node):
+    if is_return_node(node):
         return False
 
     terminal_keywords = [
@@ -98,14 +183,19 @@ def validate_branch_flow(spec, user_input: str = ""):
     # 2. 检查 decision 节点是否至少有两个出口
     for node in spec.nodes:
         if node.kind == "decision":
+            if is_result_label_like_node(node):
+                errors.append(
+                    f"判断节点 {node.id}（{node.text}）像是分支结果，不能作为 decision 节点；"
+                    f"应改为 edge.label，并保留真正的判断节点"
+                )
+
             out_degree = from_count.get(node.id, 0)
 
             if out_degree < 2:
                 errors.append(
                     f"判断节点 {node.id}（{node.text}）至少应该有两个出口，但当前只有 {out_degree} 个"
                 )
-
-    # 3. 检查孤立节点
+        # 3. 检查孤立节点
     for node in spec.nodes:
         in_degree = to_count.get(node.id, 0)
         out_degree = from_count.get(node.id, 0)
