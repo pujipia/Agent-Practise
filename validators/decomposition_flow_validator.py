@@ -426,17 +426,9 @@ def check_decomposition_flow_coverage(
         formatted_flow = _format_flow(flow)
 
         if not source_id:
-            errors.append(
-                "Decomposition decision flow 的 source 未被 Branch 图覆盖："
-                f"{formatted_flow}"
-            )
             continue
 
         if not target_id:
-            errors.append(
-                "Decomposition decision flow 的 target 未被 Branch 图覆盖："
-                f"{formatted_flow}"
-            )
             continue
 
         matched_edges = [

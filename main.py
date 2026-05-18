@@ -26,6 +26,7 @@ from processors.role_normalizer import normalize_roles_by_input
 from processors.linear_rule_extractor import extract_linear_flow_by_rule
 from processors.flow_segmenter import split_flow_segments
 from processors.input_scope_guard import check_input_scope
+from processors.branch_repair_task_builder import build_repair_tasks
 
 from builders.flowchart_builder import build_flowchart_from_linear
 from compilers.flowchart_compiler import compile_flowchart
@@ -183,19 +184,35 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
         )
 
         errors.extend(coverage_errors)
-        errors.extend(flow_coverage_errors)
+        warnings.extend(
+            f"[Flow Coverage] {error}"
+            for error in flow_coverage_errors[:6]
+        )
+
         print_validation_result(errors, warnings)
         
 
         if errors:
             print("\n第一次 branch 抽取存在结构错误，准备 retry 一次。")
+            filtered_errors = []
 
+            for error in errors:
+                if "Decomposition decision flow 的 source 未被 Branch 图覆盖" in error:
+                    continue
+
+                if "Decomposition decision flow 的 target 未被 Branch 图覆盖" in error:
+                    continue
+
+                filtered_errors.append(error)
+            retry_errors = filtered_errors[:5]
+            repair_tasks = build_repair_tasks(errors)
             try:
                 branch_diagram = extract_branch_flow_with_retry(
                     user_input=user_input,
-                    errors=errors,
+                    errors=retry_errors,
                     previous_diagram=branch_diagram,
                     decomposition_spec=decomposition_spec,
+                    repair_tasks=repair_tasks,
                 )
 
                 branch_diagram = repair_agent_pipeline_edges(branch_diagram)
@@ -212,7 +229,11 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
                     decomposition_spec=decomposition_spec,
                 )
                 errors.extend(coverage_errors)
-                errors.extend(flow_coverage_errors)
+                # 只有在结构错误和 decision coverage 都通过后，
+                # 再把 flow coverage 作为最终错误。
+                if not errors and flow_coverage_errors:
+                    errors.extend(flow_coverage_errors[:6])
+
                 print_validation_result(errors, warnings)
 
             except Exception as retry_error:

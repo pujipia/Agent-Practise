@@ -1,49 +1,250 @@
 {
   "modules": [
     {
-      "name": "文件上传模块",
-      "responsibility": "接收用户上传的文件，并处理上传后的步骤。"
+      "name": "订单信息检查模块",
+      "responsibility": "检查订单信息是否完整"
     },
     {
-      "name": "文件格式检查模块",
-      "responsibility": "检查上传文件的格式是否支持。"
+      "name": "库存检查模块",
+      "responsibility": "检查订单库存情况"
     },
     {
-      "name": "文件大小检查模块",
-      "responsibility": "检查上传文件的大小是否超过限制。"
+      "name": "库存锁定模块",
+      "responsibility": "锁定库存"
     },
     {
-      "name": "文件解析模块",
-      "responsibility": "解析上传文件的内容。"
+      "name": "优惠券检查模块",
+      "responsibility": "检查优惠券有效性"
+    },
+    {
+      "name": "支付模块",
+      "responsibility": "处理支付流程"
+    },
+    {
+      "name": "交易风控模块",
+      "responsibility": "进行风险评估"
+    },
+    {
+      "name": "订单编号生成模块",
+      "responsibility": "生成唯一的订单编号"
+    },
+    {
+      "name": "仓库发货模块",
+      "responsibility": "通知仓库处理发货事宜"
     }
   ],
   "decisions": [
     {
-      "question": "文件格式是否支持？",
+      "question": "订单信息是否完整",
       "options": [],
-      "description": "判断上传文件的格式是否被系统支持。"
+      "description": "判断订单信息是否完整，决定后续流程分支"
     },
     {
-      "question": "文件大小是否超过限制？",
+      "question": "库存是否充足",
       "options": [],
-      "description": "判断上传文件的大小是否超过系统设定的限制。"
+      "description": "判断库存是否充足，决定是否锁定库存"
+    },
+    {
+      "question": "用户是否使用优惠券",
+      "options": [],
+      "description": "判断用户是否使用优惠券，决定是否检查优惠券"
+    },
+    {
+      "question": "优惠券是否有效",
+      "options": [],
+      "description": "判断优惠券是否有效，决定是否使用优惠价"
+    },
+    {
+      "question": "支付是否成功",
+      "options": [],
+      "description": "判断支付是否成功，决定是否调用风控模块"
+    },
+    {
+      "question": "风控是否通过",
+      "options": [],
+      "description": "判断风控是否通过，决定是否生成订单编号"
+    },
+    {
+      "question": "发货是否成功",
+      "options": [],
+      "description": "判断发货是否成功，决定是否通知用户"
+    },
+    {
+      "question": "用户是否选择重新支付",
+      "options": [],
+      "description": "判断用户是否选择重新支付，决定是否调用支付模块"
     }
   ],
   "flows": [
     {
-      "source": "文件上传模块",
-      "target": "文件格式检查模块",
-      "condition": "无条件"
+      "source": "用户提交订单",
+      "target": "订单信息是否完整",
+      "condition": ""
     },
     {
-      "source": "文件格式检查模块",
-      "target": "文件大小检查模块",
-      "condition": "文件格式支持"
+      "source": "订单信息是否完整",
+      "target": "系统提示用户补全订单信息",
+      "condition": "订单信息不完整"
     },
     {
-      "source": "文件大小检查模块",
-      "target": "文件解析模块",
-      "condition": "文件大小未超过限制"
+      "source": "系统提示用户补全订单信息",
+      "target": "用户提交订单",
+      "condition": ""
+    },
+    {
+      "source": "订单信息是否完整",
+      "target": "库存检查模块",
+      "condition": "订单信息完整"
+    },
+    {
+      "source": "库存检查模块",
+      "target": "库存是否充足",
+      "condition": ""
+    },
+    {
+      "source": "库存是否充足",
+      "target": "系统提示用户商品库存不足",
+      "condition": "库存不足"
+    },
+    {
+      "source": "系统提示用户商品库存不足",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "库存是否充足",
+      "target": "库存锁定模块",
+      "condition": "库存充足"
+    },
+    {
+      "source": "库存锁定模块",
+      "target": "用户是否使用优惠券",
+      "condition": ""
+    },
+    {
+      "source": "用户是否使用优惠券",
+      "target": "优惠券检查模块",
+      "condition": "用户使用优惠券"
+    },
+    {
+      "source": "用户是否使用优惠券",
+      "target": "使用原价生成支付金额",
+      "condition": "用户未使用优惠券"
+    },
+    {
+      "source": "优惠券检查模块",
+      "target": "优惠券是否有效",
+      "condition": ""
+    },
+    {
+      "source": "优惠券是否有效",
+      "target": "系统提示用户优惠券不可用",
+      "condition": "优惠券无效"
+    },
+    {
+      "source": "系统提示用户优惠券不可用",
+      "target": "使用原价生成支付金额",
+      "condition": ""
+    },
+    {
+      "source": "优惠券是否有效",
+      "target": "计算优惠后金额",
+      "condition": "优惠券有效"
+    },
+    {
+      "source": "使用原价生成支付金额",
+      "target": "支付模块",
+      "condition": ""
+    },
+    {
+      "source": "计算优惠后金额",
+      "target": "支付模块",
+      "condition": ""
+    },
+    {
+      "source": "支付模块",
+      "target": "支付是否成功",
+      "condition": ""
+    },
+    {
+      "source": "支付是否成功",
+      "target": "释放库存",
+      "condition": "支付失败"
+    },
+    {
+      "source": "释放库存",
+      "target": "用户是否选择重新支付",
+      "condition": ""
+    },
+    {
+      "source": "用户是否选择重新支付",
+      "target": "系统调用支付模块",
+      "condition": "用户选择重新支付"
+    },
+    {
+      "source": "用户是否选择重新支付",
+      "target": "取消订单",
+      "condition": "用户不选择重新支付"
+    },
+    {
+      "source": "取消订单",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "支付是否成功",
+      "target": "调用交易风控模块",
+      "condition": "支付成功"
+    },
+    {
+      "source": "调用交易风控模块",
+      "target": "风控是否通过",
+      "condition": ""
+    },
+    {
+      "source": "风控是否通过",
+      "target": "冻结订单并提交人工审核",
+      "condition": "风控不通过"
+    },
+    {
+      "source": "冻结订单并提交人工审核",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "风控是否通过",
+      "target": "生成订单编号",
+      "condition": "风控通过"
+    },
+    {
+      "source": "生成订单编号",
+      "target": "仓库发货模块",
+      "condition": ""
+    },
+    {
+      "source": "仓库发货模块",
+      "target": "发货是否成功",
+      "condition": ""
+    },
+    {
+      "source": "发货是否成功",
+      "target": "创建发货异常工单",
+      "condition": "发货失败"
+    },
+    {
+      "source": "创建发货异常工单",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "发货是否成功",
+      "target": "通知用户订单已发货",
+      "condition": "发货成功"
+    },
+    {
+      "source": "通知用户订单已发货",
+      "target": "结束",
+      "condition": ""
     }
   ],
   "dependencies": []

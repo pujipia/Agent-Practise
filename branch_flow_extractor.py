@@ -281,6 +281,7 @@ def build_branch_retry_prompt(
     errors: list[str],
     previous_diagram: Optional[BranchFlowSpec] = None,
     decomposition_spec: Optional[Any] = None,
+    repair_tasks: str = "",
 ) -> str:
     """
     构建 branch retry prompt。
@@ -290,6 +291,7 @@ def build_branch_retry_prompt(
     """
 
     error_text = "\n".join(f"- {error}" for error in errors)
+    repair_tasks_text = repair_tasks.strip() if repair_tasks else "无。"
 
     if previous_diagram is not None:
         previous_json = json.dumps(
@@ -315,11 +317,134 @@ def build_branch_retry_prompt(
         decomposition_json = "{}"
 
     return f"""
-你是一个分支流程图 JSON 修复器。
+你是一个 branch JSON 局部修复器。
 
 你的任务：
-根据用户原始输入、Decomposition Agent 的结构化拆解结果、上一次 branch JSON 和校验错误，
-修复上一版 branch JSON，重新生成完整、合法、可通过校验的 branch JSON。
+根据校验错误和 repair tasks，在 previous_json 的基础上进行最小修复，
+并输出修复后的完整 branch JSON。
+
+你不是重新设计流程图。
+你不是重新抽取整个流程。
+你只能针对 repair tasks 和 errors 中指出的问题进行局部修复。
+
+====================
+最小修改原则
+====================
+
+1. previous_json 中不冲突的 nodes 必须保留。
+2. previous_json 中不冲突的 edges 必须保留。
+3. 已有 node.id 不要随意改变。
+4. 已有 node.text 不要随意改写。
+5. 已有 node.kind 不要随意改变。
+6. 除非 repair task 明确要求，否则不要删除已有节点或边。
+7. 禁止重画整张图。
+8. 禁止把判断结果生成为 decision 节点。
+9. 最终必须输出完整 branch JSON，不要输出 diff / patch。
+
+====================
+上一次 branch JSON
+====================
+
+{previous_json}
+
+====================
+校验错误
+====================
+
+{error_text}
+
+====================
+本次必须修复的 repair tasks
+====================
+
+{repair_tasks_text}
+
+====================
+Decomposition Agent 结构化参考
+====================
+
+{decomposition_json}
+
+====================
+用户原始输入
+====================
+
+{user_input}
+
+====================
+修复规则
+====================
+
+【Coverage 修复规则】
+
+如果 repair task 或 error 中出现：
+Decomposition decision 未被 Branch 图覆盖：X
+
+则本次输出必须包含 text 语义包含 X 的 decision 节点。
+
+如果 error 中包含“相关 flows”，这些 flows 是强约束，必须体现在 edges 中。
+
+如果 previous_json 中存在 A -> C，但相关 flows 显示应为 A -> X -> C，
+则必须插入 X，并删除或替换跳过 X 的错误边。
+
+【Decomposition Flow 修复规则】
+
+如果 error 中出现：
+Decomposition decision flow 未被 Branch 图覆盖：A -> B [condition: 条件]
+
+则必须在 Branch edges 中生成：
+A 对应节点 -> B 对应节点，edge.label = 条件。
+
+如果 condition 为空，则 label 使用空字符串。
+
+【判断结果不得作为节点】
+
+以下内容只能作为 edge.label，不能作为 node.text，也不能作为 decision 节点：
+
+是 / 否 / 有 / 无
+成功 / 失败 / 正确 / 错误
+通过 / 不通过
+有效 / 无效
+完整 / 不完整
+为空 / 不为空
+支持 / 不支持
+存在 / 不存在
+充足 / 不足
+超过 / 未超过
+需要 / 不需要
+使用 / 未使用
+选择 / 不选择
+正常 / 异常
+高风险 / 低风险
+
+错误：
+id=9, text=未使用优惠券, kind=decision
+id=15, text=风控通过, kind=decision
+id=21, text=发货成功, kind=decision
+
+正确：
+text=用户是否使用优惠券, kind=decision
+edge.label = 未使用优惠券
+
+text=风控是否通过, kind=decision
+edge.label = 风控通过
+
+text=发货是否成功, kind=decision
+edge.label = 发货成功
+
+【return 边规则】
+
+只有原文、previous_json 或 Decomposition flows 明确表示：
+返回、回到、重新输入、重新上传、重新支付、退回修改、补充材料
+
+才允许生成 label="返回" 的边。
+
+不要因为 condition 是“失败 / 不通过 / 无效”就自动返回。
+如果 Decomposition flows 显示某节点应连接到“结束”或普通后续动作，则不能改成 return。
+
+====================
+输出要求
+====================
 
 你必须只输出 JSON。
 不要解释。
@@ -341,122 +466,6 @@ JSON 必须包含：
 5. subroutine
 
 edge.label 只能填写纯文本，例如 "支付成功"。
-禁止在 label 中加入 Mermaid 管道符号，例如 "|支付成功|"。
-【判断结果不得作为节点】
-
-以下内容只能作为 edge.label，不能作为 node.text，也不能作为 decision 节点：
-
-1. 是 / 否 / 有 / 无
-2. 成功 / 失败 / 正确 / 错误
-3. 通过 / 不通过
-4. 有效 / 无效
-5. 完整 / 不完整
-6. 为空 / 不为空
-7. 支持 / 不支持
-8. 存在 / 不存在
-9. 充足 / 不足
-10. 超过 / 未超过
-11. 需要 / 不需要
-12. 使用 / 未使用
-13. 选择 / 不选择
-14. 同意 / 不同意
-15. 批准 / 不批准
-16. 正常 / 异常
-17. 高风险 / 低风险
-
-如果某个文本只是判断结果，它必须放在 edge.label 中。
-
-错误示例：
-{{"id": "9", "text": "未使用优惠券", "kind": "decision"}}
-{{"id": "15", "text": "风控通过", "kind": "decision"}}
-{{"id": "21", "text": "发货成功", "kind": "decision"}}
-
-正确示例：
-{{"text": "用户是否使用优惠券", "kind": "decision"}}
-edge.label = "未使用优惠券"
-
-{{"text": "风控是否通过", "kind": "decision"}}
-edge.label = "风控通过"
-
-{{"text": "发货是否成功", "kind": "decision"}}
-edge.label = "发货成功"
-
-====================
-用户原始输入
-====================
-
-{user_input}
-
-====================
-Decomposition Agent 结构化参考
-====================
-
-{decomposition_json}
-
-====================
-上一次 branch JSON
-====================
-
-{previous_json}
-
-====================
-上一次 branch JSON 校验错误
-====================
-
-{error_text}
-
-====================
-retry 修复优先级
-====================
-
-你正在修复上一版 branch JSON，而不是重新设计一张全新的流程图。
-
-优先级如下：
-
-1. validator errors 和 coverage errors 必须优先修复。
-2. 如果 error 中包含“Decomposition decision 未被 Branch 图覆盖”，该 decision 必须出现在本次 nodes 中，且 kind 必须是 "decision"。
-3. 如果 error 中包含“相关 flows”，这些 flows 是本次 retry 的强约束，必须体现在 nodes 和 edges 中。
-4. previous_diagram 中不冲突的节点和边可以保留。
-5. 如果 previous_diagram 中的边跳过了 coverage error 指出的 decision，则必须删除或替换这条跳跃边。
-6. Decomposition flows 中明确 source -> target 的关系优先于模型自由补全。
-7. 不允许用“提示失败 -> 返回”替代 Decomposition flows 中已经明确给出的中间判断节点。
-8. 不允许自行插入“提示成功”“提示失败”等 Decomposition flows 中不存在的节点，除非原始用户输入明确包含。
-9. 如果 Decomposition flows 明确显示某节点应连接到“结束”或普通后续动作，则不能把它改成 return 边。
-10. 不要因为 Decomposition flows 中没有直接写“返回”二字，就随意删除 previous_diagram 中明确正确的 return 边。
-
-====================
-Coverage Error 强制修复规则
-====================
-
-如果校验错误中出现：
-
-Decomposition decision 未被 Branch 图覆盖：X
-
-则说明 Decomposition Agent 已经识别出判断节点 X，但上一版 Branch JSON 的 nodes 中遗漏了该 decision。
-
-本次 retry 必须执行以下修复：
-
-1. 必须在 nodes 中新增或保留一个 decision 节点。
-   该节点 text 必须包含 X 的核心语义。
-   该节点 kind 必须是 "decision"。
-
-2. 必须根据 error 中给出的“相关 flows”补全 X 的入边和出边。
-
-3. 如果相关 flows 中存在：
-   A -> X
-   X -> B [condition: 条件1]
-   X -> C [condition: 条件2]
-
-   则 branch JSON 中必须生成：
-   A 对应节点 -> X 对应节点
-   X 对应节点 -> B 对应节点，edge.label = 条件1
-   X 对应节点 -> C 对应节点，edge.label = 条件2
-
-4. 如果 previous_diagram 中存在 A -> B 或 A -> C 的跳跃边，但相关 flows 显示应为 A -> X -> B/C，则必须插入 X，不允许继续跳过 X。
-
-5. 禁止只生成 X 节点但不连接它的分支。
-
-6. 禁止把“成功 / 失败 / 通过 / 不通过 / 有效 / 无效”单独作为节点，它们应作为 edge.label。
 """
 
 def extract_branch_flow_with_retry(
@@ -464,6 +473,7 @@ def extract_branch_flow_with_retry(
     errors: list[str],
     previous_diagram: Optional[BranchFlowSpec] = None,
     decomposition_spec: Optional[Any] = None,
+    repair_tasks: str = "",
 ) -> BranchFlowSpec:
     """
     当第一次 branch 抽取校验失败时，使用更强 prompt 重试一次。
@@ -476,6 +486,7 @@ def extract_branch_flow_with_retry(
         errors=errors,
         previous_diagram=previous_diagram,
         decomposition_spec=decomposition_spec,
+        repair_tasks=repair_tasks,
     )
 
     raw_json = _call_ollama(retry_prompt)

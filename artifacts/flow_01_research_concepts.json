@@ -1,24 +1,54 @@
 {
   "concepts": [
     {
-      "name": "用户上传文件",
+      "name": "用户提交订单",
       "type": "input",
-      "description": "用户上传文件，系统接收文件作为输入。"
+      "description": "用户通过页面提交订单信息"
     },
     {
-      "name": "检查文件格式",
+      "name": "订单信息完整",
       "type": "decision",
-      "description": "判断上传文件的格式是否支持。"
+      "description": "判断订单信息是否完整，决定后续流程分支"
     },
     {
-      "name": "检查文件大小",
+      "name": "库存检查模块",
+      "type": "module",
+      "description": "调用模块检查订单库存情况"
+    },
+    {
+      "name": "库存充足",
       "type": "decision",
-      "description": "判断上传文件的大小是否超过限制。"
+      "description": "判断库存是否充足，决定是否锁定库存"
     },
     {
-      "name": "解析文件",
+      "name": "支付模块",
+      "type": "module",
+      "description": "调用支付模块处理支付流程"
+    },
+    {
+      "name": "优惠券有效",
+      "type": "decision",
+      "description": "判断优惠券是否有效，决定是否使用优惠价"
+    },
+    {
+      "name": "交易风控模块",
+      "type": "module",
+      "description": "调用风控模块进行风险评估"
+    },
+    {
+      "name": "订单编号生成",
       "type": "process",
-      "description": "解析上传文件的内容。"
+      "description": "生成唯一的订单编号"
+    },
+    {
+      "name": "仓库发货",
+      "type": "process",
+      "description": "通知仓库处理发货事宜"
+    },
+    {
+      "name": "支付成功",
+      "type": "decision",
+      "description": "判断支付是否成功，决定是否调用风控模块"
     }
   ]
 }
