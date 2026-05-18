@@ -380,12 +380,22 @@ Decomposition Agent 结构化参考
 如果 repair task 或 error 中出现：
 Decomposition decision 未被 Branch 图覆盖：X
 
-则本次输出必须包含 text 语义包含 X 的 decision 节点。
+则本次 retry 必须执行“插入缺失 decision”修复：
 
-如果 error 中包含“相关 flows”，这些 flows 是强约束，必须体现在 edges 中。
+1. nodes 中必须新增或保留一个 decision 节点，node.text 必须语义包含 X。
+2. 如果 error 中包含“相关 flows”，则这些 flows 是强约束。
+3. 对于相关 flows：
+   A -> X
+   X -> B [condition: 条件1]
+   X -> C [condition: 条件2]
 
-如果 previous_json 中存在 A -> C，但相关 flows 显示应为 A -> X -> C，
-则必须插入 X，并删除或替换跳过 X 的错误边。
+   输出中必须包含：
+   A 对应节点 -> X 对应节点
+   X 对应节点 -> B 对应节点，edge.label = 条件1
+   X 对应节点 -> C 对应节点，edge.label = 条件2
+
+4. 如果 previous_json 中存在 A -> B 或 A -> C 的跳跃边，但相关 flows 显示应为 A -> X -> B/C，则必须删除或替换这条跳跃边。
+5. 禁止只生成 X 节点但不连接它。
 
 【Decomposition Flow 修复规则】
 
@@ -465,7 +475,7 @@ JSON 必须包含：
 4. input_output
 5. subroutine
 
-edge.label 只能填写纯文本，例如 "支付成功"。
+edge.label 只能填写纯文本，例如 "处理成功"。
 """
 
 def extract_branch_flow_with_retry(
@@ -616,10 +626,43 @@ class BranchFlowExtractor:
             f"flowchart {self.direction}",
         ]
 
+        # ------------------------------------------------------------
+        # 视觉起点锚点
+        # 作用：
+        # 1. 不修改 BranchFlowSpec 原始 JSON；
+        # 2. 只在 Mermaid 输出中增加一个“开始”节点；
+        # 3. 减少入口节点被 return 边挤到旁边的问题。
+        # ------------------------------------------------------------
+        node_ids = {
+            str(node.get("id", ""))
+            for node in self.nodes
+        }
+
+        visual_start_id = "__START__"
+
+        while visual_start_id in node_ids:
+            visual_start_id = "_" + visual_start_id
+
+        first_node_id = ""
+        if self.nodes:
+            first_node_id = str(self.nodes[0].get("id", ""))
+
+        has_explicit_start_node = any(
+            str(node.get("kind", "")) == "start_end"
+            and str(node.get("text", "")) in ["开始", "流程开始"]
+            for node in self.nodes
+        )
+
+        if first_node_id and not has_explicit_start_node:
+            lines.append(f'{visual_start_id}(["开始"])')
+
         for node in self.nodes:
             lines.append(self._render_node(node))
 
         lines.append("")
+
+        if first_node_id and not has_explicit_start_node:
+            lines.append(f"{visual_start_id} --> {first_node_id}")
 
         for edge in self.edges:
             rendered_edge = self._render_edge(edge)

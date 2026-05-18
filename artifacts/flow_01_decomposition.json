@@ -1,165 +1,250 @@
 {
   "modules": [
     {
-      "name": "合同文本解析模块",
-      "responsibility": "解析上传的合同文件，提取文本内容。"
+      "name": "订单信息检查模块",
+      "responsibility": "检查订单信息是否完整"
     },
     {
-      "name": "条款抽取 Agent",
-      "responsibility": "从合同文本中抽取关键条款。"
+      "name": "库存检查模块",
+      "responsibility": "检查订单库存情况"
     },
     {
-      "name": "合规风险识别 Agent",
-      "responsibility": "识别合同中的合规风险条款。"
+      "name": "库存锁定模块",
+      "responsibility": "锁定库存"
+    },
+    {
+      "name": "优惠券检查模块",
+      "responsibility": "检查优惠券有效性"
+    },
+    {
+      "name": "支付模块",
+      "responsibility": "处理支付流程"
+    },
+    {
+      "name": "交易风控模块",
+      "responsibility": "进行风险评估"
+    },
+    {
+      "name": "订单编号生成模块",
+      "responsibility": "生成唯一的订单编号"
+    },
+    {
+      "name": "仓库发货模块",
+      "responsibility": "通知仓库处理发货事宜"
     }
   ],
   "decisions": [
     {
-      "question": "合同文件是否成功接收",
+      "question": "订单信息是否完整",
       "options": [],
-      "description": "判断上传的合同文件是否被系统成功接收。"
+      "description": "判断订单信息是否完整，决定后续流程分支"
     },
     {
-      "question": "文件格式是否支持",
+      "question": "库存是否充足",
       "options": [],
-      "description": "判断上传的合同文件格式是否为支持的类型（如 PDF 或 DOCX）。"
+      "description": "判断库存是否充足，决定是否锁定库存"
     },
     {
-      "question": "合同文本是否为空",
+      "question": "用户是否使用优惠券",
       "options": [],
-      "description": "判断解析后的合同文本是否为空。"
+      "description": "判断用户是否使用优惠券，决定是否检查优惠券"
     },
     {
-      "question": "是否成功抽取关键条款",
+      "question": "优惠券是否有效",
       "options": [],
-      "description": "判断条款抽取 Agent 是否成功抽取关键条款。"
+      "description": "判断优惠券是否有效，决定是否使用优惠价"
     },
     {
-      "question": "是否发现高风险条款",
+      "question": "支付是否成功",
       "options": [],
-      "description": "判断合规风险识别 Agent 是否发现高风险条款。"
+      "description": "判断支付是否成功，决定是否调用风控模块"
     },
     {
-      "question": "风险是否涉及知识产权或保密义务",
+      "question": "风控是否通过",
       "options": [],
-      "description": "判断发现的高风险条款是否涉及知识产权或保密义务。"
+      "description": "判断风控是否通过，决定是否生成订单编号"
     },
     {
-      "question": "法务是否批准继续",
+      "question": "发货是否成功",
       "options": [],
-      "description": "判断法务负责人是否批准继续流程。"
+      "description": "判断发货是否成功，决定是否通知用户"
+    },
+    {
+      "question": "用户是否选择重新支付",
+      "options": [],
+      "description": "判断用户是否选择重新支付，决定是否调用支付模块"
     }
   ],
   "flows": [
     {
-      "source": "用户上传合同文件",
-      "target": "合同文件是否成功接收",
+      "source": "用户提交订单",
+      "target": "订单信息是否完整",
       "condition": ""
     },
     {
-      "source": "合同文件是否成功接收",
-      "target": "系统提示用户重新上传合同文件",
-      "condition": "未成功接收"
+      "source": "订单信息是否完整",
+      "target": "系统提示用户补全订单信息",
+      "condition": "订单信息不完整"
     },
     {
-      "source": "合同文件是否成功接收",
-      "target": "文件格式是否支持",
-      "condition": "成功接收"
-    },
-    {
-      "source": "文件格式是否支持",
-      "target": "系统提示用户上传 PDF 或 DOCX 文件",
-      "condition": "不支持"
-    },
-    {
-      "source": "文件格式是否支持",
-      "target": "合同文本解析模块",
-      "condition": "支持"
-    },
-    {
-      "source": "合同文本解析模块",
-      "target": "合同文本是否为空",
+      "source": "系统提示用户补全订单信息",
+      "target": "用户提交订单",
       "condition": ""
     },
     {
-      "source": "合同文本是否为空",
-      "target": "系统提示用户检查合同文件内容",
-      "condition": "为空"
+      "source": "订单信息是否完整",
+      "target": "库存检查模块",
+      "condition": "订单信息完整"
     },
     {
-      "source": "合同文本是否为空",
-      "target": "条款抽取 Agent",
-      "condition": "不为空"
-    },
-    {
-      "source": "条款抽取 Agent",
-      "target": "是否成功抽取关键条款",
+      "source": "库存检查模块",
+      "target": "库存是否充足",
       "condition": ""
     },
     {
-      "source": "是否成功抽取关键条款",
-      "target": "系统触发条款抽取 retry",
-      "condition": "未成功"
+      "source": "库存是否充足",
+      "target": "系统提示用户商品库存不足",
+      "condition": "库存不足"
     },
     {
-      "source": "系统触发条款抽取 retry",
-      "target": "是否成功抽取关键条款",
+      "source": "系统提示用户商品库存不足",
+      "target": "结束",
       "condition": ""
     },
     {
-      "source": "是否成功抽取关键条款",
-      "target": "系统提示需要人工审查",
-      "condition": "未成功"
+      "source": "库存是否充足",
+      "target": "库存锁定模块",
+      "condition": "库存充足"
     },
     {
-      "source": "是否成功抽取关键条款",
-      "target": "合规风险识别 Agent",
-      "condition": "成功"
-    },
-    {
-      "source": "合规风险识别 Agent",
-      "target": "是否发现高风险条款",
+      "source": "库存锁定模块",
+      "target": "用户是否使用优惠券",
       "condition": ""
     },
     {
-      "source": "是否发现高风险条款",
-      "target": "系统生成低风险审查报告",
-      "condition": "未发现"
+      "source": "用户是否使用优惠券",
+      "target": "优惠券检查模块",
+      "condition": "用户使用优惠券"
     },
     {
-      "source": "是否发现高风险条款",
-      "target": "标注风险条款及其判断依据",
-      "condition": "发现"
+      "source": "用户是否使用优惠券",
+      "target": "使用原价生成支付金额",
+      "condition": "用户未使用优惠券"
     },
     {
-      "source": "标注风险条款及其判断依据",
-      "target": "风险是否涉及知识产权或保密义务",
+      "source": "优惠券检查模块",
+      "target": "优惠券是否有效",
       "condition": ""
     },
     {
-      "source": "风险是否涉及知识产权或保密义务",
-      "target": "系统生成普通风险提示报告",
-      "condition": "不涉及"
+      "source": "优惠券是否有效",
+      "target": "系统提示用户优惠券不可用",
+      "condition": "优惠券无效"
     },
     {
-      "source": "风险是否涉及知识产权或保密义务",
-      "target": "系统转交法务负责人复核",
-      "condition": "涉及"
-    },
-    {
-      "source": "系统转交法务负责人复核",
-      "target": "法务是否批准继续",
+      "source": "系统提示用户优惠券不可用",
+      "target": "使用原价生成支付金额",
       "condition": ""
     },
     {
-      "source": "法务是否批准继续",
-      "target": "系统生成高风险终止建议",
-      "condition": "不批准"
+      "source": "优惠券是否有效",
+      "target": "计算优惠后金额",
+      "condition": "优惠券有效"
     },
     {
-      "source": "法务是否批准继续",
-      "target": "系统生成修改建议和风险提示报告",
-      "condition": "批准"
+      "source": "使用原价生成支付金额",
+      "target": "支付模块",
+      "condition": ""
+    },
+    {
+      "source": "计算优惠后金额",
+      "target": "支付模块",
+      "condition": ""
+    },
+    {
+      "source": "支付模块",
+      "target": "支付是否成功",
+      "condition": ""
+    },
+    {
+      "source": "支付是否成功",
+      "target": "释放库存",
+      "condition": "支付失败"
+    },
+    {
+      "source": "释放库存",
+      "target": "用户是否选择重新支付",
+      "condition": ""
+    },
+    {
+      "source": "用户是否选择重新支付",
+      "target": "系统调用支付模块",
+      "condition": "用户选择重新支付"
+    },
+    {
+      "source": "用户是否选择重新支付",
+      "target": "取消订单",
+      "condition": "用户不选择重新支付"
+    },
+    {
+      "source": "取消订单",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "支付是否成功",
+      "target": "调用交易风控模块",
+      "condition": "支付成功"
+    },
+    {
+      "source": "调用交易风控模块",
+      "target": "风控是否通过",
+      "condition": ""
+    },
+    {
+      "source": "风控是否通过",
+      "target": "冻结订单并提交人工审核",
+      "condition": "风控不通过"
+    },
+    {
+      "source": "冻结订单并提交人工审核",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "风控是否通过",
+      "target": "生成订单编号",
+      "condition": "风控通过"
+    },
+    {
+      "source": "生成订单编号",
+      "target": "仓库发货模块",
+      "condition": ""
+    },
+    {
+      "source": "仓库发货模块",
+      "target": "发货是否成功",
+      "condition": ""
+    },
+    {
+      "source": "发货是否成功",
+      "target": "创建发货异常工单",
+      "condition": "发货失败"
+    },
+    {
+      "source": "创建发货异常工单",
+      "target": "结束",
+      "condition": ""
+    },
+    {
+      "source": "发货是否成功",
+      "target": "通知用户订单已发货",
+      "condition": "发货成功"
+    },
+    {
+      "source": "通知用户订单已发货",
+      "target": "结束",
+      "condition": ""
     }
   ],
   "dependencies": []

@@ -267,21 +267,21 @@ def check_decomposition_decision_coverage(
         if not decision_text:
             continue
 
-    if not _is_decision_covered(decision_text, searchable_texts):
-        related_flows = _get_related_flows(
-            decision_text=decision_text,
-            decomposition_spec=decomposition_spec,
-        )
+        if not _is_decision_covered(decision_text, searchable_texts):
+            related_flows = _get_related_flows(
+                decision_text=decision_text,
+                decomposition_spec=decomposition_spec,
+            )
 
-        if related_flows:
-            errors.append(
-                "Decomposition decision 未被 Branch 图覆盖："
-                f"{decision_text}\n"
-                "相关 flows：\n"
-                + "\n".join(related_flows)
-            )
-        else:
-            errors.append(
-                f"Decomposition decision 未被 Branch 图覆盖：{decision_text}"
-            )
+            if related_flows:
+                errors.append(
+                    "Decomposition decision 未被 Branch 图覆盖："
+                    f"{decision_text}\n"
+                    "相关 flows：\n"
+                    + "\n".join(related_flows)
+                )
+            else:
+                errors.append(
+                    f"Decomposition decision 未被 Branch 图覆盖：{decision_text}"
+                )
     return errors

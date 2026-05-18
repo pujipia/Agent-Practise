@@ -206,6 +206,12 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
                 filtered_errors.append(error)
             retry_errors = filtered_errors[:5]
             repair_tasks = build_repair_tasks(errors)
+            print("\n[debug] retry_errors:")
+            for error in retry_errors:
+                print(error)
+
+            print("\n[debug] repair_tasks:")
+            print(repair_tasks)
             try:
                 branch_diagram = extract_branch_flow_with_retry(
                     user_input=user_input,
@@ -232,7 +238,12 @@ def process_single_flow(user_input: str, output_prefix: str = "flow_01") -> dict
                 # 只有在结构错误和 decision coverage 都通过后，
                 # 再把 flow coverage 作为最终错误。
                 if not errors and flow_coverage_errors:
-                    errors.extend(flow_coverage_errors[:6])
+                    errors.extend(coverage_errors)
+
+                    warnings.extend(
+                        f"[Flow Coverage] {error}"
+                        for error in flow_coverage_errors[:6]
+                    )
 
                 print_validation_result(errors, warnings)
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from copy import deepcopy
 from models.branch_flow_spec import BranchFlowSpec
 
@@ -19,6 +19,23 @@ END_KEYWORDS = [
     "生成报告",
     "通知完成",
 ]
+INVALID_END_TARGETS = {
+    "",
+    "null",
+    "none",
+    "nil",
+    "undefined",
+}
+END_TARGET_ALIASES = {
+    "end",
+    "结束",
+    "流程结束",
+    "input_end",
+    "output_end",
+    "finish",
+    "finished",
+    "done",
+}
 
 RETURN_KEYWORDS = [
     "重新上传",
@@ -156,17 +173,25 @@ def _is_end_action_text(text: Any) -> bool:
         for keyword in END_KEYWORDS
     )
 
-def _find_end_node_id(nodes: List[Dict[str, Any]]) -> str | None:
+def _find_end_node_id(nodes: List[Dict[str, Any]]) -> Optional[str]:
     """
-    如果已有结束节点，返回它的 id。
+    查找真正的结束节点。
+
+    只承认 kind="start_end" 的结束节点。
+    不把 kind="process" 且 text="流程结束" 的节点当成真正结束节点，
+    避免 LLM 生成的伪结束节点影响 end repair。
     """
 
     for node in nodes:
-        node_id = node.get("id", "")
-        node_text = node.get("text", "")
+        node_id = str(node.get("id", ""))
+        node_text = _normalize(node.get("text", ""))
+        node_kind = str(node.get("kind", ""))
+
+        if node_kind != "start_end":
+            continue
 
         if _is_end_text(node_id) or _is_end_text(node_text):
-            return str(node_id)
+            return node_id
 
     return None
 
@@ -200,7 +225,30 @@ def _edge_exists(edges: List[Dict[str, Any]], source: str, target: str) -> bool:
         and str(edge.get("target", "")) == target
         for edge in edges
     )
-    
+
+def _is_invalid_end_target(target: Any) -> bool:
+    """
+    判断 edge.target 是否是 LLM 生成的无效结束占位符。
+
+    例如：
+    target = "null"
+    target = None
+    target = ""
+    target = "None"
+
+    这些都不是合法节点 id，应该被修复为“流程结束”节点。
+    """
+
+    normalized = _normalize(target).lower()
+
+    return normalized in [
+        "",
+        "null",
+        "none",
+        "nil",
+        "undefined",
+    ]
+
 def _has_non_return_outgoing_edge(edges: List[Dict[str, Any]], source: str) -> bool:
     """
     判断某个节点是否已经有非返回类出边。
@@ -215,6 +263,10 @@ def _has_non_return_outgoing_edge(edges: List[Dict[str, Any]], source: str) -> b
 
         label = str(edge.get("label", "") or "")
         target = str(edge.get("target", "") or "")
+
+        # target 是 null / none / 空字符串，不算正常出边
+        if _is_invalid_end_target(target):
+            continue
 
         is_return_edge = (
             "返回" in label
@@ -233,15 +285,12 @@ def repair_end_edges(branch_diagram: Any) -> BranchFlowSpec:
     """
     最小版终点补全。
 
-    只做：
-    1. 补“流程结束”节点；
-    2. 给明显终止动作节点补一条到“流程结束”的边。
-
-    不做：
-    1. 不删除已有边；
-    2. 不修改回边；
-    3. 不重排节点；
-    4. 不影响 loop_repairs.py。
+    只做三件事：
+    1. 如果 LLM 生成 target="null" / "none" / 空 target，
+       则把这些非法结束占位符改成真正的“流程结束”节点。
+    2. 如果明确终止动作节点没有任何出边，
+       则补一条到“流程结束”的边。
+    3. 不删除已有边、不修改回边、不重排节点。
     """
 
     data = _to_dict(branch_diagram)
@@ -252,7 +301,35 @@ def repair_end_edges(branch_diagram: Any) -> BranchFlowSpec:
     if not isinstance(nodes, list) or not isinstance(edges, list):
         return BranchFlowSpec.model_validate(data)
 
-    end_action_node_ids = []
+    # ------------------------------------------------------------
+    # Step 1. 找出 LLM 生成的非法结束占位符边
+    # 例如：
+    # {"source": "6", "target": "null", "label": ""}
+    # ------------------------------------------------------------
+    invalid_end_edges = []
+
+    end_like_targets = INVALID_END_TARGETS | END_TARGET_ALIASES
+
+    for edge in edges:
+        target = _normalize(edge.get("target", "")).lower()
+
+        if target in end_like_targets:
+            invalid_end_edges.append(edge)
+
+    # ------------------------------------------------------------
+    # Step 2. 找出“明确终止动作且没有任何出边”的节点
+    # 注意：
+    # 这里只看没有出边的终止动作节点。
+    # 已经有出边的节点不再额外补结束边。
+    # ------------------------------------------------------------
+    edge_sources = {
+        str(edge.get("source", ""))
+        for edge in edges
+        if _normalize(edge.get("target", "")).lower() not in INVALID_END_TARGETS
+        and _normalize(edge.get("target", "")).lower() not in END_TARGET_ALIASES
+    }
+
+    terminal_node_ids = []
 
     for node in nodes:
         node_id = str(node.get("id", ""))
@@ -265,18 +342,21 @@ def repair_end_edges(branch_diagram: Any) -> BranchFlowSpec:
         if node_kind == "decision":
             continue
 
+        if node_id in edge_sources:
+            continue
+
         if not _is_end_action_text(node_text):
             continue
 
-        # 如果已经有正常出边，不再补结束边
-        if _has_non_return_outgoing_edge(edges, node_id):
-            continue
+        terminal_node_ids.append(node_id)
 
-        end_action_node_ids.append(node_id)
-
-    if not end_action_node_ids:
+    # 如果既没有 null target，也没有需要补结束边的终止节点，直接返回
+    if not invalid_end_edges and not terminal_node_ids:
         return BranchFlowSpec.model_validate(data)
 
+    # ------------------------------------------------------------
+    # Step 3. 找到或创建“流程结束”节点
+    # ------------------------------------------------------------
     end_node_id = _find_end_node_id(nodes)
 
     if end_node_id is None:
@@ -289,6 +369,33 @@ def repair_end_edges(branch_diagram: Any) -> BranchFlowSpec:
                 "kind": "start_end",
             }
         )
+
+    # ------------------------------------------------------------
+    # Step 4. 把所有 target=null / none / 空 target 改成“流程结束”
+    # ------------------------------------------------------------
+    for edge in invalid_end_edges:
+        edge["target"] = end_node_id
+        edge["label"] = ""
+
+    # ------------------------------------------------------------
+    # Step 5. 给明确终止动作节点补结束边
+    # ------------------------------------------------------------
+    for source_id in terminal_node_ids:
+        if _edge_exists(edges, source_id, end_node_id):
+            continue
+
+        edges.append(
+            {
+                "source": source_id,
+                "target": end_node_id,
+                "label": "",
+            }
+        )
+
+    data["nodes"] = nodes
+    data["edges"] = edges
+
+    return BranchFlowSpec.model_validate(data)
 
     def _is_return_edge(edge: Dict[str, Any]) -> bool:
         """

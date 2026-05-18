@@ -1,84 +1,54 @@
 {
   "concepts": [
     {
-      "name": "用户上传合同文件",
+      "name": "用户提交订单",
       "type": "input",
-      "description": "用户上传合同文件作为输入操作。"
+      "description": "用户通过页面提交订单信息"
     },
     {
-      "name": "系统判断合同文件是否成功接收",
+      "name": "订单信息完整",
       "type": "decision",
-      "description": "判断合同文件是否成功接收，决定后续流程分支。"
+      "description": "判断订单信息是否完整，决定后续流程分支"
     },
     {
-      "name": "系统提示用户重新上传合同文件",
-      "type": "process",
-      "description": "提示用户重新上传合同文件，完成反馈操作。"
-    },
-    {
-      "name": "系统判断文件格式是否支持",
-      "type": "decision",
-      "description": "判断上传的合同文件格式是否为支持的类型。"
-    },
-    {
-      "name": "系统提示用户上传 PDF 或 DOCX 文件",
-      "type": "process",
-      "description": "提示用户上传特定格式的文件，完成反馈操作。"
-    },
-    {
-      "name": "系统调用合同文本解析模块",
+      "name": "库存检查模块",
       "type": "module",
-      "description": "调用合同文本解析模块来解析上传的合同文件。"
+      "description": "调用模块检查订单库存情况"
     },
     {
-      "name": "系统判断合同文本是否为空",
+      "name": "库存充足",
       "type": "decision",
-      "description": "判断解析后的合同文本是否为空，决定后续操作。"
+      "description": "判断库存是否充足，决定是否锁定库存"
     },
     {
-      "name": "系统提示用户检查合同文件内容",
-      "type": "process",
-      "description": "提示用户检查合同文件内容，完成反馈操作。"
-    },
-    {
-      "name": "系统调用条款抽取 Agent",
+      "name": "支付模块",
       "type": "module",
-      "description": "调用条款抽取 Agent 来从合同文本中抽取关键条款。"
+      "description": "调用支付模块处理支付流程"
     },
     {
-      "name": "系统判断是否成功抽取关键条款",
+      "name": "优惠券有效",
       "type": "decision",
-      "description": "判断条款抽取 Agent 是否成功抽取关键条款。"
+      "description": "判断优惠券是否有效，决定是否使用优惠价"
     },
     {
-      "name": "系统触发条款抽取 retry",
+      "name": "交易风控模块",
+      "type": "module",
+      "description": "调用风控模块进行风险评估"
+    },
+    {
+      "name": "订单编号生成",
       "type": "process",
-      "description": "触发条款抽取的重试操作，以再次尝试抽取关键条款。"
+      "description": "生成唯一的订单编号"
     },
     {
-      "name": "系统判断风险是否涉及知识产权或保密义务",
+      "name": "仓库发货",
+      "type": "process",
+      "description": "通知仓库处理发货事宜"
+    },
+    {
+      "name": "支付成功",
       "type": "decision",
-      "description": "判断发现的高风险条款是否涉及知识产权或保密义务。"
-    },
-    {
-      "name": "系统生成低风险审查报告",
-      "type": "process",
-      "description": "生成低风险审查报告，完成报告生成操作。"
-    },
-    {
-      "name": "系统生成普通风险提示报告",
-      "type": "process",
-      "description": "生成普通风险提示报告，完成报告生成操作。"
-    },
-    {
-      "name": "系统生成高风险终止建议",
-      "type": "process",
-      "description": "生成高风险终止建议，完成建议生成操作。"
-    },
-    {
-      "name": "系统生成修改建议和风险提示报告",
-      "type": "process",
-      "description": "生成修改建议和风险提示报告，完成报告生成操作。"
+      "description": "判断支付是否成功，决定是否调用风控模块"
     }
   ]
 }
